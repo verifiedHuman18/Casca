@@ -27,5 +27,13 @@
     "prettier": "^3.4.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.5"
+    }
   }
 }
