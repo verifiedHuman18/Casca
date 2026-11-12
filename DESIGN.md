@@ -1,114 +1,100 @@
 ---
 name: Casca
-description: Chrono Obsidian Campus Calendar and Event Broadcasting Platform
+description: Warm Sand Editorial Campus Calendar & Scheduling Platform
 colors:
-  bg: '#08090d'
-  bg-subtle: '#0e1117'
-  surface: '#141822'
-  surface-elevated: '#1a202e'
-  surface-hover: '#202738'
-  surface-border: '#232b3d'
-  surface-border-subtle: '#191f2c'
-  surface-border-glow: '#2e3a54'
-  text-primary: '#f8fafc'
-  text-secondary: '#94a3b8'
-  text-muted: '#64748b'
-  text-dim: '#475569'
-  campus: '#ff5c00'
-  club: '#00d4ff'
-  section: '#00f59b'
-  now-laser: '#ff2e63'
-  accent-primary: '#38bdf8'
-  accent-blue: '#2563eb'
-  accent-amber: '#f59e0b'
+  bg: '#f4f3ef'
+  bg-card: '#ffffff'
+  surface-subtle: '#ebe9e3'
+  border: '#e4e2dc'
+  border-strong: '#d5d2c8'
+  text-primary: '#141518'
+  text-secondary: '#62646e'
+  text-muted: '#9699a3'
+  pill-active-bg: '#141518'
+  pill-active-text: '#ffffff'
+  tint-warm: '#faedd9'
+  tint-sage: '#e3ece5'
+  tint-lavender: '#e8e5f2'
+  tint-rose: '#f5e4e2'
+  tint-sky: '#e3ecf5'
 rounded:
-  sm: '4px'
-  md: '8px'
-  lg: '12px'
+  sm: '8px'
+  md: '14px'
+  lg: '22px'
+  xl: '28px'
   full: '9999px'
 spacing:
   xs: '4px'
   sm: '8px'
-  md: '12px'
-  lg: '16px'
-  xl: '20px'
+  md: '14px'
+  lg: '20px'
+  xl: '28px'
 ---
 
-# Design System: Chrono Obsidian
+# Design System: Warm Sand Editorial
 
 ## Overview
 
-Casca employs the **Chrono Obsidian** visual language—a dark, high-contrast, technical aesthetic inspired by modern command centers, precision developer tooling (Linear, Vesper, Tokyo Night), and digital chrono interfaces.
+Inspired by high-craft editorial design and modern minimalist calendar architecture (Image 1 reference), Casca shifts away from dark command centers and generic AI slop toward a warm, serene, tactile publication feel:
 
-It completely avoids generic "AI slop" (clichéd purple gradients, floating cards with washed-out gray text, and decorative emojis) in favor of deep cosmic canvas tones, razor-sharp hairline surface borders, continuous temporal rails, and vivid signal accents that communicate institutional scope instantly.
+- **Canvas**: Warm bone/sand backdrop (`#f4f3ef`) with soft, natural daylight clarity.
+- **Generous Negative Space**: Deep breathing room around day anchors and schedule items.
+- **Strict Anti-Clutter Rules**:
+  - **Zero Badges**: Eliminates all visual badge tags (`CAMPUS`, `CLUB`, `ACTIVE`, `PENDING_APPROVAL`).
+  - **Zero Repetition**: Date is established once with architectural prominence; never restated inside every card.
+  - **Restrained Color Hierarchy**: Soft pastel architectural tints (`#faedd9`, `#e3ece5`, `#e8e5f2`) over black/charcoal typography (`#141518`).
 
 ## Colors
 
-### Surface Hierarchy
+### Canvas & Ground Planes
 
-- **Canvas Base (`#08090d`)**: Deepest ground plane; minimizes optical fatigue across OLED displays.
-- **Surface Elevation (`#141822`, `#1a202e`)**: High-density slate containers for cards, dialogs, and navigation.
-- **Hairline Strokes (`#232b3d`, `#191f2c`)**: 1px structural dividers providing tactile separation without heavy drop shadows.
+- **Backdrop (`#f4f3ef`)**: Natural warm bone/sand paper ground plane.
+- **Surface Elevation (`#ffffff`, `#ebe9e3`)**: Clean off-white and subtle stone surfaces.
+- **Dividers (`rgba(0, 0, 0, 0.06)`)**: Ultra-faint structural hairline rules.
 
-### Semantic Signal Accents
+### Tonal Card Tints (Warm & Restrained)
 
-- **Campus Scope (`#ff5c00`)**: Signal Vermilion. Used exclusively for university-wide, high-authority announcements and symposiums.
-- **Club Scope (`#00d4ff`)**: Electric Cyan. Highlights student society workshops, hackathons, and competitive coding contests.
-- **Section Scope (`#00f59b`)**: Phosphor Emerald. Identifies localized lectures, lab assessments, and tutorial schedules.
-- **Laser Timeline (`#ff2e63`)**: Razor Crimson. Denotes the live present moment on the calendar timeline.
-- **Institutional Warning (`#f59e0b`)**: Radiant Amber. Designates read-only cross-section modes (UC-04) and pending administrative approval queues (UC-14).
+- **Wheat / Warm Ochre (`#faedd9`)**: Warm morning tint with deep ochre text (`#422f18`).
+- **Soft Sage (`#e3ece5`)**: Earthy moss tint with deep forest text (`#233829`).
+- **Muted Lavender (`#e8e5f2`)**: Quiet twilight tint with deep slate-purple text (`#2b263d`).
+- **Pale Sky (`#e3ecf5`)**: Subtle afternoon tint with deep navy text (`#1e2f3d`).
 
 ## Typography
 
-- **Tracking & Geometry**: Micro-tracked uppercase metadata (`letter-spacing: 0.8px – 2.2px`) establishes high-end technical legibility.
-- **Tabular Figures**: Numeric time ranges and dates utilize tabular alignment for scannable time gutters.
-- **Hierarchy Scale**:
-  - `Display / Brand`: 20px, 900 weight, 2.2px tracking (`CASCA`).
-  - `Headings`: 16px–18px, 800 weight (`NOVEMBER 2026`).
-  - `Card Titles`: 14px, 700 weight, 19px line height.
-  - `Body / Descriptions`: 12px, 500 weight, 17px line height (`#94a3b8`).
-  - `Micro Badges`: 9px–11px, 800 weight, uppercase tracking.
+- **Scale & Contrast**:
+  - `Hero Date Number`: 52px, 900 weight, -1.5px tracking (`12.11`).
+  - `Hero Month`: 28px, 800 weight, 2px tracking (`NOV`).
+  - `Day of Week`: 15px, 600 weight (`Thursday`).
+  - `Card Title`: 20px, 800 weight, 26px line height.
+  - `Times & Metrics`: 15px, 700 weight with secondary label (`Start`, `End`).
+- **Absence of Eyebrows / Kickers**: Per Impeccable craft rules, titles lead directly without artificial kicker pills above them.
 
 ## Layout
 
-- **Dual-Mode Calendar Matrix**:
-  - **Month Grid**: 7-column matrix (`S, M, T, W, T, F, S`) with density dot clusters under dates indicating active event scopes.
-  - **Week Strip**: 7-day horizontal carousel for single-handed thumb interaction.
-- **Hourly Timeline Gutter**: Left-aligned 60dp time rail connected by continuous vertical 1.5px lines and node anchors.
-- **Edge-to-Edge Android Insets**: Dynamic safe-area top padding (`StatusBar.currentHeight + 8dp`) and 62dp bottom glassmorphic navigation bar.
-
-## Elevation & Depth
-
-- **Tonal Elevation over Drop Shadows**: Surfaces distinguish depth through calibrated background steps (`#08090d` ➔ `#141822` ➔ `#1a202e`) rather than fuzzy blur shadows.
-- **Glow Accents**: Micro-borders utilize 10%–20% alpha fills matching their respective scope signal color (`rgba(0, 245, 155, 0.12)`).
+- **Top Segmented Control**:
+  - Pill switcher: `Today` (solid black pill `#141518`) | `Calendar` (subtle border pill) | `+` circular action button.
+- **Today Mode (Day Schedule)**:
+  - Asymmetrical date hero header (`12.11 NOV`) with aligned secondary academic metadata.
+  - Expansive card blocks with 22px internal padding and 16px margins.
+- **Calendar Mode (Multi-Day Stacked Feed)**:
+  - Subtle month nav: `OCT < NOV 2026 > DEC`.
+  - Stacked multi-day cards showing left-hand prominent date numbers and clean timeline items on the right.
 
 ## Shapes
 
-- **Radius Scale**:
-  - `sm (4px)`: Micro-badges, scope chips, and dot markers.
-  - `md (8px)`: Date cells, input controls, action buttons.
-  - `lg (12px–14px)`: Event cards, calendar matrix container, modals.
-  - `full`: Circular avatars, status pips, indicator dots.
-
-## Components
-
-- **Event Card**: 4px left-border signal stripe, header row with scope badge and time duration pill, high-contrast title, venue row with location pin.
-- **Scope Filter Pills**: Toggle pills with 6px colored indicator pips, active glow state, and real-time count badges.
-- **Section Lens Pill**: Interactive banner showing active section status (`IT-A`) and cross-section inspection trigger (`IT-B (Read-Only)`).
-- **Iconography**: Exclusively 2px stroke geometric vector icons via `@expo/vector-icons/Feather`. Zero emojis.
+- **Card Contours**: `radius.xl (28px)` for expansive, approachable tactile containers.
+- **Controls & Pills**: `radius.full (9999px)` for pill segmented controls and duration chips.
 
 ## Do's and Don'ts
 
 ### Do's
 
-- **Do** preserve the 4px left border on event cards matching their polymorphic scope color.
-- **Do** format all mobile times in Indian Standard Time (IST) with explicit start, end, and duration.
-- **Do** maintain high contrast ratios (WCAG AAA) between text (`#f8fafc`) and dark surfaces (`#141822`).
-- **Do** use Feather vector icons with consistent 2px stroke width.
+- **Do** allow negative space to define relationships instead of dividing boxes or borders.
+- **Do** emphasize time via clear Start/End columns and clean duration pills.
+- **Do** use soft, subdued tints that respect student eyes in ambient campus light.
 
 ### Don'ts
 
-- **Don't** introduce emojis into interface copy, headers, or buttons.
-- **Don't** use generic purple-on-white gradients or washed-out gray text.
-- **Don't** allow section events to blend with campus events without distinct scope badges.
-- **Don't** hardcode fixed top offsets that collide with Android camera punch-holes or notification bars.
+- **Don't** add colored badges or pill tags to event cards.
+- **Don't** repeat date numbers across cards within the same day section.
+- **Don't** use emojis or high-saturation neon colors.

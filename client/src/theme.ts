@@ -1,42 +1,47 @@
 export const theme = {
   colors: {
-    bg: '#08090d',
-    bgSubtle: '#0e1117',
-    surface: '#141822',
-    surfaceElevated: '#1a202e',
-    surfaceHover: '#202738',
-    surfaceBorder: '#232b3d',
-    surfaceBorderSubtle: '#191f2c',
-    surfaceBorderGlow: '#2e3a54',
+    bg: '#f4f3ef', // Warm bone / sand canvas (Image 1)
+    bgCard: '#ffffff',
+    surfaceSubtle: '#ebe9e3',
+    border: '#e4e2dc',
+    borderStrong: '#d5d2c8',
 
-    textPrimary: '#f8fafc',
-    textSecondary: '#94a3b8',
-    textMuted: '#64748b',
-    textDim: '#475569',
+    // High-contrast typography
+    textPrimary: '#141518',
+    textSecondary: '#62646e',
+    textMuted: '#9699a3',
+    textLight: '#ffffff',
 
-    // Sharp signal accents
-    campus: '#ff5c00', // Signal Vermilion
-    campusBg: 'rgba(255, 92, 0, 0.12)',
-    campusBorder: 'rgba(255, 92, 0, 0.35)',
+    // Pill button controls
+    pillActiveBg: '#141518',
+    pillActiveText: '#ffffff',
+    pillInactiveBg: 'transparent',
+    pillInactiveText: '#141518',
 
-    club: '#00d4ff', // Electric Cyan
-    clubBg: 'rgba(0, 212, 255, 0.12)',
-    clubBorder: 'rgba(0, 212, 255, 0.35)',
-
-    section: '#00f59b', // Phosphor Emerald
-    sectionBg: 'rgba(0, 245, 155, 0.12)',
-    sectionBorder: 'rgba(0, 245, 155, 0.35)',
-
-    nowLaser: '#ff2e63', // Laser Crimson
-    nowLaserBg: 'rgba(255, 46, 99, 0.15)',
-
-    accentPrimary: '#38bdf8',
-    accentBlue: '#2563eb',
-    accentAmber: '#f59e0b',
-    accentAmberBg: 'rgba(245, 158, 11, 0.12)',
-    accentAmberBorder: 'rgba(245, 158, 11, 0.35)',
+    // Soft muted tonal blocks (Image 1 & 3 - pastel architectural tints)
+    tintWarm: '#faedd9', // Wheat / Ochre
+    tintWarmText: '#422f18',
+    tintSage: '#e3ece5', // Soft Sage
+    tintSageText: '#233829',
+    tintLavender: '#e8e5f2', // Muted Lavender
+    tintLavenderText: '#2b263d',
+    tintRose: '#f5e4e2', // Dusty Rose
+    tintRoseText: '#3d2422',
+    tintSky: '#e3ecf5', // Pale Sky
+    tintSkyText: '#1e2f3d',
   },
-  typography: {
-    mono: 'monospace',
+  radius: {
+    sm: 8,
+    md: 14,
+    lg: 22,
+    xl: 28,
+    full: 9999,
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 14,
+    lg: 20,
+    xl: 28,
   },
 };

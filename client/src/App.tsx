@@ -13,130 +13,129 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Feather from '@expo/vector-icons/Feather';
-import { ScopeType, EventStatus, UIEventItem, UserSession } from './types';
+import { ScopeType, UIEventItem, UserSession } from './types';
 import {
   INITIAL_MOCK_USER,
   INITIAL_MOCK_EVENTS,
   fetchCalendarEvents,
   createNewEvent,
 } from './services/api';
-import {
-  getMonthMatrix,
-  formatDateKey,
-  formatTimeRange,
-  SIMULATED_TODAY_KEY,
-  SIMULATED_TODAY,
-} from './utils/date';
 import { theme } from './theme';
 
-type TabType = 'calendar' | 'create' | 'profile';
-type CalendarViewMode = 'month' | 'week';
+type MainViewMode = 'today' | 'calendar' | 'create';
+
+interface DayGroup {
+  dateKey: string;
+  dayOfWeek: string;
+  dayNumber: number;
+  monthShort: string;
+  events: UIEventItem[];
+  tintBg: string;
+  tintText: string;
+}
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('calendar');
-  const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
+  const [viewMode, setViewMode] = useState<MainViewMode>('today');
   const [user, setUser] = useState<UserSession>(INITIAL_MOCK_USER);
   const [events, setEvents] = useState<UIEventItem[]>(INITIAL_MOCK_EVENTS);
-  const [selectedScopeFilter, setSelectedScopeFilter] = useState<'ALL' | ScopeType>('ALL');
-  const [includeExtraSection, setIncludeExtraSection] = useState<boolean>(true); // UC-04 toggle
+  const [selectedDayKey, setSelectedDayKey] = useState<string>('2026-11-12');
 
-  // Calendar Date State (November 2026 anchor)
-  const [selectedDateKey, setSelectedDateKey] = useState<string>(SIMULATED_TODAY_KEY);
-  const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [currentMonth, setCurrentMonth] = useState<number>(10); // 0-indexed: 10 = November
-
-  // Form State
+  // Form State for Event Creation
   const [formTitle, setFormTitle] = useState('');
-  const [formDesc, setFormDesc] = useState('');
   const [formVenue, setFormVenue] = useState('');
+  const [formDesc, setFormDesc] = useState('');
   const [formScope, setFormScope] = useState<ScopeType>(ScopeType.SECTION);
 
   useEffect(() => {
     fetchCalendarEvents().then(setEvents);
   }, []);
 
-  // Compute month matrix
-  const monthMatrix = useMemo(() => {
-    return getMonthMatrix(currentYear, currentMonth);
-  }, [currentYear, currentMonth]);
+  // Format date helper: YYYY-MM-DD
+  const getDayKey = (isoString: string) => {
+    const d = new Date(isoString);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
-  // Map events to date keys for dot markers
-  const eventsByDateKey = useMemo(() => {
+  // Group events by day for the stacked calendar view
+  const dayGroups: DayGroup[] = useMemo(() => {
     const map = new Map<string, UIEventItem[]>();
     events.forEach(evt => {
-      // Respect extra section filter
-      if (evt.targetSections?.includes('IT-B') && !includeExtraSection) {
-        return;
-      }
-      const key = formatDateKey(new Date(evt.startTime));
+      const key = getDayKey(evt.startTime);
       const list = map.get(key) || [];
       list.push(evt);
       map.set(key, list);
     });
-    return map;
-  }, [events, includeExtraSection]);
 
-  // Events filtered for the currently selected day
-  const selectedDayEvents = useMemo(() => {
-    const dayEvts = eventsByDateKey.get(selectedDateKey) || [];
-    return dayEvts.filter(evt => {
-      if (selectedScopeFilter === 'ALL') return true;
-      return evt.scope === selectedScopeFilter;
+    const tints = [
+      { bg: theme.colors.tintLavender, text: theme.colors.tintLavenderText },
+      { bg: theme.colors.tintRose, text: theme.colors.tintRoseText },
+      { bg: theme.colors.tintSage, text: theme.colors.tintSageText },
+      { bg: theme.colors.tintWarm, text: theme.colors.tintWarmText },
+      { bg: theme.colors.tintSky, text: theme.colors.tintSkyText },
+    ];
+
+    const sortedKeys = Array.from(map.keys()).sort();
+    return sortedKeys.map((key, idx) => {
+      const [y, m, d] = key.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
+      const monthShort = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+      const tint = tints[idx % tints.length];
+
+      return {
+        dateKey: key,
+        dayOfWeek,
+        dayNumber: d,
+        monthShort,
+        events: map.get(key) || [],
+        tintBg: tint.bg,
+        tintText: tint.text,
+      };
     });
-  }, [eventsByDateKey, selectedDateKey, selectedScopeFilter]);
+  }, [events]);
 
-  // Week strip around the selected date
-  const weekStrip = useMemo(() => {
-    const [y, m, d] = selectedDateKey.split('-').map(Number);
-    const centerDate = new Date(y, m - 1, d);
-    const dayOfWeek = centerDate.getDay();
-    const days: { date: Date; key: string; dayNum: number; dayName: string; isToday: boolean }[] =
-      [];
-    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  // Events for the selected day in "Today" view
+  const selectedDayGroup = useMemo(() => {
+    return (
+      dayGroups.find(g => g.dateKey === selectedDayKey) ||
+      dayGroups[0] || {
+        dateKey: '2026-11-12',
+        dayOfWeek: 'Thursday',
+        dayNumber: 12,
+        monthShort: 'NOV',
+        events: [],
+        tintBg: theme.colors.tintWarm,
+        tintText: theme.colors.tintWarmText,
+      }
+    );
+  }, [dayGroups, selectedDayKey]);
 
-    for (let i = 0; i < 7; i++) {
-      const offset = i - dayOfWeek;
-      const targetDate = new Date(y, m - 1, d + offset);
-      const key = formatDateKey(targetDate);
-      days.push({
-        date: targetDate,
-        key,
-        dayNum: targetDate.getDate(),
-        dayName: dayNames[targetDate.getDay()],
-        isToday: key === SIMULATED_TODAY_KEY,
-      });
-    }
-    return days;
-  }, [selectedDateKey]);
-
-  // Month navigation
-  const handlePrevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(prev => prev - 1);
-    } else {
-      setCurrentMonth(prev => prev - 1);
-    }
+  // Format time range nicely (e.g. 10:00 AM – 11:30 AM)
+  const formatTime = (isoString: string) => {
+    const d = new Date(isoString);
+    const hours = d.getHours();
+    const minutes = d.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const formattedHours = hours % 12 || 12;
+    const formattedMinutes = minutes === 0 ? '00' : String(minutes).padStart(2, '0');
+    return `${formattedHours}:${formattedMinutes} ${ampm}`;
   };
 
-  const handleNextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(prev => prev + 1);
-    } else {
-      setCurrentMonth(prev => prev + 1);
-    }
+  const getDuration = (startIso: string, endIso: string) => {
+    const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime();
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffMins = Math.round((diffMs % 3600000) / 60000);
+    if (diffHours > 0 && diffMins > 0) return `${diffHours}h ${diffMins}m`;
+    if (diffHours > 0) return `${diffHours}h`;
+    return `${diffMins}m`;
   };
 
-  const handleJumpToToday = () => {
-    setCurrentYear(SIMULATED_TODAY.getFullYear());
-    setCurrentMonth(SIMULATED_TODAY.getMonth());
-    setSelectedDateKey(SIMULATED_TODAY_KEY);
-  };
-
-  const handleCreateEvent = async () => {
+  const handleCreate = async () => {
     if (!formTitle.trim() || !formVenue.trim()) {
-      Alert.alert('Incomplete Form', 'Please specify event title and venue.');
+      Alert.alert('Required Fields', 'Please enter event title and venue.');
       return;
     }
 
@@ -144,8 +143,8 @@ export default function App() {
       title: formTitle.trim(),
       description: formDesc.trim(),
       venue: formVenue.trim(),
-      startTime: new Date(`${selectedDateKey}T10:00:00.000Z`).toISOString(),
-      endTime: new Date(`${selectedDateKey}T12:00:00.000Z`).toISOString(),
+      startTime: `${selectedDayKey}T10:00:00.000Z`,
+      endTime: `${selectedDayKey}T11:30:00.000Z`,
       scope: formScope,
       clubName: formScope === ScopeType.CLUB ? user.clubs[0] || 'Coding Club' : undefined,
       targetSections:
@@ -154,807 +153,306 @@ export default function App() {
 
     setEvents(prev => [created, ...prev]);
     setFormTitle('');
-    setFormDesc('');
     setFormVenue('');
-    setActiveTab('calendar');
-
-    Alert.alert(
-      created.status === EventStatus.PENDING_APPROVAL ? 'Approval Requested' : 'Event Published',
-      created.status === EventStatus.PENDING_APPROVAL
-        ? 'Campus-level events require administrative approval before public broadcasting.'
-        : `Published to ${created.scope} scope.`
-    );
+    setFormDesc('');
+    setViewMode('today');
   };
-
-  const monthNames = [
-    'JANUARY',
-    'FEBRUARY',
-    'MARCH',
-    'APRIL',
-    'MAY',
-    'JUNE',
-    'JULY',
-    'AUGUST',
-    'SEPTEMBER',
-    'OCTOBER',
-    'NOVEMBER',
-    'DECEMBER',
-  ];
-
-  const selectedDateObject = useMemo(() => {
-    const [y, m, d] = selectedDateKey.split('-').map(Number);
-    return new Date(y, m - 1, d);
-  }, [selectedDateKey]);
-
-  const selectedDateFormatted = selectedDateObject.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* Top Architectural Header */}
-      <View style={styles.header}>
-        <View style={styles.brandContainer}>
-          <View style={styles.brandRow}>
-            <Text style={styles.brandTitle}>CASCA</Text>
-            <View style={styles.liveIndicator}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>CAMPUS PULSE</Text>
-            </View>
-          </View>
-          <Text style={styles.userSubtitle}>
-            {user.name} · {user.course}-{user.section} (Yr {user.year})
-          </Text>
+      {/* Top Segmented Control (Image 1 reference) */}
+      <View style={styles.topBar}>
+        <View style={styles.segmentedControls}>
+          <TouchableOpacity
+            style={[styles.segmentBtn, viewMode === 'today' && styles.segmentBtnActive]}
+            onPress={() => setViewMode('today')}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[styles.segmentBtnText, viewMode === 'today' && styles.segmentBtnTextActive]}
+            >
+              Today
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.segmentBtn, viewMode === 'calendar' && styles.segmentBtnActive]}
+            onPress={() => setViewMode('calendar')}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[
+                styles.segmentBtnText,
+                viewMode === 'calendar' && styles.segmentBtnTextActive,
+              ]}
+            >
+              Calendar
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Persona Switcher Pill */}
+        {/* Plus / Add Event Action */}
         <TouchableOpacity
-          style={styles.personaBadge}
-          activeOpacity={0.8}
-          onPress={() => {
-            Alert.alert(
-              'Switch Persona (Acceptance Testing)',
-              'Select actor to test authorization rules:',
-              [
-                {
-                  text: 'Student (Read-Only)',
-                  onPress: () =>
-                    setUser({
-                      ...user,
-                      positions: ['Student'],
-                      clubs: [],
-                    }),
-                },
-                {
-                  text: 'Class Rep (IT-A CR)',
-                  onPress: () =>
-                    setUser({
-                      ...user,
-                      positions: ['Class Representative'],
-                      clubs: [],
-                    }),
-                },
-                {
-                  text: 'Club Coordinator (Coding Club)',
-                  onPress: () =>
-                    setUser({
-                      ...user,
-                      positions: ['Club Coordinator'],
-                      clubs: ['Coding Club'],
-                    }),
-                },
-              ]
-            );
-          }}
+          style={[styles.plusBtn, viewMode === 'create' && styles.plusBtnActive]}
+          onPress={() => setViewMode(viewMode === 'create' ? 'today' : 'create')}
+          activeOpacity={0.85}
         >
           <Feather
-            name="shield"
-            size={12}
-            color={theme.colors.accentPrimary}
-            style={{ marginRight: 6 }}
+            name={viewMode === 'create' ? 'x' : 'plus'}
+            size={18}
+            color={viewMode === 'create' ? theme.colors.pillActiveText : theme.colors.textPrimary}
           />
-          <Text style={styles.personaBadgeText}>{user.positions[0] || 'Student'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Main Tab Content */}
-      {activeTab === 'calendar' && (
-        <ScrollView style={styles.mainScroll} contentContainerStyle={styles.mainScrollContent}>
-          {/* Calendar Control Bar */}
-          <View style={styles.calendarControlBar}>
-            <View style={styles.monthNavRow}>
-              <Text style={styles.monthTitle}>
-                {monthNames[currentMonth]} <Text style={styles.yearTitle}>{currentYear}</Text>
-              </Text>
-              <View style={styles.navArrows}>
-                <TouchableOpacity onPress={handlePrevMonth} style={styles.iconNavBtn} hitSlop={10}>
-                  <Feather name="chevron-left" size={18} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleJumpToToday}
-                  style={styles.todayBtn}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.todayBtnText}>TODAY</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleNextMonth} style={styles.iconNavBtn} hitSlop={10}>
-                  <Feather name="chevron-right" size={18} color={theme.colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
+      {/* VIEW 1: TODAY / SCHEDULE VIEW (Image 1 Left Screen) */}
+      {viewMode === 'today' && (
+        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+          {/* Big Bold Date Hero (Image 1 inspired) */}
+          <View style={styles.heroDateRow}>
+            <View style={styles.heroDateLeft}>
+              <Text style={styles.heroDayOfWeek}>{selectedDayGroup.dayOfWeek}</Text>
+              <Text style={styles.heroDateNumber}>{selectedDayGroup.dayNumber}.11</Text>
+              <Text style={styles.heroMonthText}>{selectedDayGroup.monthShort}</Text>
             </View>
 
-            {/* View Mode Toggle (Month Grid vs Week Strip) */}
-            <View style={styles.viewModeToggle}>
+            {/* Context Info (clean, zero badge clutter) */}
+            <View style={styles.heroContextRight}>
               <TouchableOpacity
-                style={[styles.viewModeBtn, viewMode === 'month' && styles.viewModeBtnActive]}
-                onPress={() => setViewMode('month')}
+                onPress={() => {
+                  Alert.alert('Switch Actor', 'Test role permissions:', [
+                    {
+                      text: 'Student (Read-Only)',
+                      onPress: () => setUser({ ...user, positions: ['Student'] }),
+                    },
+                    {
+                      text: 'Class Rep (IT-A)',
+                      onPress: () => setUser({ ...user, positions: ['Class Representative'] }),
+                    },
+                    {
+                      text: 'Club Coordinator',
+                      onPress: () => setUser({ ...user, positions: ['Club Coordinator'] }),
+                    },
+                  ]);
+                }}
+                activeOpacity={0.7}
               >
-                <Feather
-                  name="grid"
-                  size={13}
-                  color={viewMode === 'month' ? theme.colors.textPrimary : theme.colors.textMuted}
-                />
-                <Text
-                  style={[
-                    styles.viewModeBtnText,
-                    viewMode === 'month' && styles.viewModeBtnTextActive,
-                  ]}
-                >
-                  Month
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.viewModeBtn, viewMode === 'week' && styles.viewModeBtnActive]}
-                onPress={() => setViewMode('week')}
-              >
-                <Feather
-                  name="list"
-                  size={13}
-                  color={viewMode === 'week' ? theme.colors.textPrimary : theme.colors.textMuted}
-                />
-                <Text
-                  style={[
-                    styles.viewModeBtnText,
-                    viewMode === 'week' && styles.viewModeBtnTextActive,
-                  ]}
-                >
-                  Week Strip
+                <Text style={styles.contextRole}>{user.positions[0] || 'Student'}</Text>
+                <Text style={styles.contextSection}>
+                  {user.course}-{user.section} · Year {user.year}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Month Matrix Calendar Grid */}
-          {viewMode === 'month' ? (
-            <View style={styles.monthContainer}>
-              {/* Day-of-week header row */}
-              <View style={styles.dayOfWeekHeaderRow}>
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayName, idx) => (
-                  <View key={`dayname-${idx}`} style={styles.dayOfWeekHeaderCell}>
-                    <Text
-                      style={[
-                        styles.dayOfWeekHeaderText,
-                        (idx === 0 || idx === 6) && styles.weekendHeaderText,
-                      ]}
-                    >
-                      {dayName}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+          {/* Section Divider / Label */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionLabel}>Schedule</Text>
+            <Text style={styles.sectionCount}>{selectedDayGroup.events.length} events</Text>
+          </View>
 
-              {/* Day cells matrix */}
-              <View style={styles.daysMatrixGrid}>
-                {monthMatrix.map((item, idx) => {
-                  const dayEvents = eventsByDateKey.get(item.dateKey) || [];
-                  const isSelected = item.dateKey === selectedDateKey;
-                  const hasCampus = dayEvents.some(e => e.scope === ScopeType.CAMPUS);
-                  const hasClub = dayEvents.some(e => e.scope === ScopeType.CLUB);
-                  const hasSection = dayEvents.some(e => e.scope === ScopeType.SECTION);
+          {/* Minimalist Event Cards (Ample negative space, zero badges) */}
+          <View style={styles.eventsList}>
+            {selectedDayGroup.events.map((evt, idx) => {
+              const cardTints = [
+                theme.colors.tintWarm,
+                theme.colors.tintSage,
+                theme.colors.tintLavender,
+                theme.colors.tintSky,
+              ];
+              const cardBg = cardTints[idx % cardTints.length];
 
-                  return (
-                    <TouchableOpacity
-                      key={`matrix-${item.dateKey}-${idx}`}
-                      style={[
-                        styles.matrixDayCell,
-                        !item.isCurrentMonth && styles.matrixDayOutside,
-                        item.isToday && styles.matrixDayToday,
-                        isSelected && styles.matrixDaySelected,
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => setSelectedDateKey(item.dateKey)}
-                    >
-                      <Text
-                        style={[
-                          styles.matrixDayNumber,
-                          !item.isCurrentMonth && styles.matrixDayNumberOutside,
-                          item.isToday && styles.matrixDayNumberToday,
-                          isSelected && styles.matrixDayNumberSelected,
-                        ]}
-                      >
-                        {item.dayNumber}
+              return (
+                <View key={evt.id} style={[styles.eventCard, { backgroundColor: cardBg }]}>
+                  {/* Event Title */}
+                  <Text style={styles.eventTitle}>{evt.title}</Text>
+
+                  {/* Clean Time Span Row */}
+                  <View style={styles.timeSpanRow}>
+                    <View style={styles.timeBlock}>
+                      <Text style={styles.timeValue}>{formatTime(evt.startTime)}</Text>
+                      <Text style={styles.timeSub}>Start</Text>
+                    </View>
+
+                    <View style={styles.durationPill}>
+                      <Text style={styles.durationText}>
+                        {getDuration(evt.startTime, evt.endTime)}
                       </Text>
-
-                      {/* Event Scope Indicator Dots */}
-                      <View style={styles.dotsRow}>
-                        {hasCampus && (
-                          <View
-                            style={[styles.eventDot, { backgroundColor: theme.colors.campus }]}
-                          />
-                        )}
-                        {hasClub && (
-                          <View style={[styles.eventDot, { backgroundColor: theme.colors.club }]} />
-                        )}
-                        {hasSection && (
-                          <View
-                            style={[styles.eventDot, { backgroundColor: theme.colors.section }]}
-                          />
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          ) : (
-            /* Week Carousel Strip */
-            <View style={styles.weekStripContainer}>
-              {weekStrip.map(item => {
-                const dayEvents = eventsByDateKey.get(item.key) || [];
-                const isSelected = item.key === selectedDateKey;
-                const hasCampus = dayEvents.some(e => e.scope === ScopeType.CAMPUS);
-                const hasClub = dayEvents.some(e => e.scope === ScopeType.CLUB);
-                const hasSection = dayEvents.some(e => e.scope === ScopeType.SECTION);
-
-                return (
-                  <TouchableOpacity
-                    key={`strip-${item.key}`}
-                    style={[
-                      styles.weekStripCell,
-                      item.isToday && styles.weekStripCellToday,
-                      isSelected && styles.weekStripCellSelected,
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => setSelectedDateKey(item.key)}
-                  >
-                    <Text
-                      style={[
-                        styles.weekStripDayName,
-                        isSelected && styles.weekStripDayNameSelected,
-                      ]}
-                    >
-                      {item.dayName}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.weekStripDayNum,
-                        item.isToday && styles.weekStripDayNumToday,
-                        isSelected && styles.weekStripDayNumSelected,
-                      ]}
-                    >
-                      {item.dayNum}
-                    </Text>
-
-                    <View style={styles.dotsRow}>
-                      {hasCampus && (
-                        <View style={[styles.eventDot, { backgroundColor: theme.colors.campus }]} />
-                      )}
-                      {hasClub && (
-                        <View style={[styles.eventDot, { backgroundColor: theme.colors.club }]} />
-                      )}
-                      {hasSection && (
-                        <View
-                          style={[styles.eventDot, { backgroundColor: theme.colors.section }]}
-                        />
-                      )}
                     </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
 
-          {/* Scope Filters & UC-04 Cross-Section Switcher */}
-          <View style={styles.filtersSection}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.scopeChipsScroll}
-            >
-              <TouchableOpacity
-                style={[styles.scopeChip, selectedScopeFilter === 'ALL' && styles.scopeChipActive]}
-                onPress={() => setSelectedScopeFilter('ALL')}
-              >
-                <Text
-                  style={[
-                    styles.scopeChipText,
-                    selectedScopeFilter === 'ALL' && styles.scopeChipTextActive,
-                  ]}
-                >
-                  ALL ({eventsByDateKey.get(selectedDateKey)?.length || 0})
-                </Text>
-              </TouchableOpacity>
+                    <View style={styles.timeBlock}>
+                      <Text style={styles.timeValue}>{formatTime(evt.endTime)}</Text>
+                      <Text style={styles.timeSub}>End</Text>
+                    </View>
+                  </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.scopeChip,
-                  selectedScopeFilter === ScopeType.CAMPUS && styles.scopeChipActiveCampus,
-                ]}
-                onPress={() => setSelectedScopeFilter(ScopeType.CAMPUS)}
-              >
-                <View style={[styles.chipIndicatorDot, { backgroundColor: theme.colors.campus }]} />
-                <Text
-                  style={[
-                    styles.scopeChipText,
-                    selectedScopeFilter === ScopeType.CAMPUS && styles.scopeChipTextActiveCampus,
-                  ]}
-                >
-                  CAMPUS
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.scopeChip,
-                  selectedScopeFilter === ScopeType.CLUB && styles.scopeChipActiveClub,
-                ]}
-                onPress={() => setSelectedScopeFilter(ScopeType.CLUB)}
-              >
-                <View style={[styles.chipIndicatorDot, { backgroundColor: theme.colors.club }]} />
-                <Text
-                  style={[
-                    styles.scopeChipText,
-                    selectedScopeFilter === ScopeType.CLUB && styles.scopeChipTextActiveClub,
-                  ]}
-                >
-                  CLUB
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.scopeChip,
-                  selectedScopeFilter === ScopeType.SECTION && styles.scopeChipActiveSection,
-                ]}
-                onPress={() => setSelectedScopeFilter(ScopeType.SECTION)}
-              >
-                <View
-                  style={[styles.chipIndicatorDot, { backgroundColor: theme.colors.section }]}
-                />
-                <Text
-                  style={[
-                    styles.scopeChipText,
-                    selectedScopeFilter === ScopeType.SECTION && styles.scopeChipTextActiveSection,
-                  ]}
-                >
-                  SECTION
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-
-            {/* UC-04 Section Lens Pill */}
-            <TouchableOpacity
-              style={[styles.sectionLensPill, includeExtraSection && styles.sectionLensPillActive]}
-              activeOpacity={0.8}
-              onPress={() => setIncludeExtraSection(prev => !prev)}
-            >
-              <Feather
-                name={includeExtraSection ? 'eye' : 'eye-off'}
-                size={13}
-                color={includeExtraSection ? theme.colors.section : theme.colors.textMuted}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={styles.sectionLensLabel}>
-                UC-04 Cross-Section View:{' '}
-                <Text style={styles.sectionLensValue}>
-                  {includeExtraSection ? 'IT-A + IT-B (Read-Only)' : 'IT-A Only'}
-                </Text>
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Timeline / Agenda View for the Selected Day */}
-          <View style={styles.agendaSection}>
-            <View style={styles.agendaHeaderRow}>
-              <View>
-                <Text style={styles.agendaDateTitle}>{selectedDateFormatted}</Text>
-                <Text style={styles.agendaSubtitle}>
-                  {selectedDateKey === SIMULATED_TODAY_KEY ? 'TODAY · ' : ''}
-                  {selectedDayEvents.length} {selectedDayEvents.length === 1 ? 'EVENT' : 'EVENTS'}{' '}
-                  SCHEDULED
-                </Text>
-              </View>
-              {selectedDateKey === SIMULATED_TODAY_KEY && (
-                <View style={styles.nowBadge}>
-                  <View style={styles.nowPulse} />
-                  <Text style={styles.nowBadgeText}>18:38 NOW</Text>
+                  {/* Understated Venue / Context */}
+                  <View style={styles.cardBottomRow}>
+                    <View style={styles.venueContainer}>
+                      <Feather
+                        name="map-pin"
+                        size={13}
+                        color={theme.colors.textSecondary}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text style={styles.venueText}>{evt.venue}</Text>
+                    </View>
+                    {evt.isReadOnly && <Text style={styles.readOnlyNote}>IT-B · Read-Only</Text>}
+                  </View>
                 </View>
-              )}
-            </View>
-
-            {/* Hourly Timeline Stream */}
-            {selectedDayEvents.length === 0 ? (
-              <View style={styles.emptyDayContainer}>
-                <Feather name="calendar" size={32} color={theme.colors.surfaceBorder} />
-                <Text style={styles.emptyDayTitle}>No scheduled events</Text>
-                <Text style={styles.emptyDaySubtitle}>
-                  Nothing marked for this day under the current scope filters.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.timelineStream}>
-                {selectedDayEvents.map((evt, idx) => {
-                  const { range, duration } = formatTimeRange(evt.startTime, evt.endTime);
-
-                  let scopeColor = theme.colors.section;
-                  let scopeIcon: 'globe' | 'code' | 'book-open' = 'book-open';
-                  if (evt.scope === ScopeType.CAMPUS) {
-                    scopeColor = theme.colors.campus;
-                    scopeIcon = 'globe';
-                  } else if (evt.scope === ScopeType.CLUB) {
-                    scopeColor = theme.colors.club;
-                    scopeIcon = 'code';
-                  }
-
-                  return (
-                    <View key={evt.id} style={styles.timelineItem}>
-                      {/* Left time gutter */}
-                      <View style={styles.timelineGutter}>
-                        <Text style={styles.gutterTimeText}>{range.split('–')[0].trim()}</Text>
-                        <View style={styles.gutterLineContainer}>
-                          <View style={[styles.gutterNode, { borderColor: scopeColor }]} />
-                          {idx < selectedDayEvents.length - 1 && (
-                            <View style={styles.gutterConnector} />
-                          )}
-                        </View>
-                      </View>
-
-                      {/* Event Block Card */}
-                      <View style={[styles.eventCard, { borderLeftColor: scopeColor }]}>
-                        {/* Scope & Metadata Row */}
-                        <View style={styles.cardHeaderRow}>
-                          <View
-                            style={[
-                              styles.scopeTag,
-                              { borderColor: scopeColor, backgroundColor: `${scopeColor}15` },
-                            ]}
-                          >
-                            <Feather
-                              name={scopeIcon}
-                              size={11}
-                              color={scopeColor}
-                              style={{ marginRight: 4 }}
-                            />
-                            <Text style={[styles.scopeTagText, { color: scopeColor }]}>
-                              {evt.scope}
-                            </Text>
-                          </View>
-
-                          <View style={styles.cardTimePill}>
-                            <Feather
-                              name="clock"
-                              size={11}
-                              color={theme.colors.textSecondary}
-                              style={{ marginRight: 4 }}
-                            />
-                            <Text style={styles.cardTimeText}>{range}</Text>
-                            <Text style={styles.cardDurationText}>({duration})</Text>
-                          </View>
-                        </View>
-
-                        {/* Title & Description */}
-                        <Text style={styles.eventTitle}>{evt.title}</Text>
-                        <Text style={styles.eventDesc}>{evt.description}</Text>
-
-                        {/* Badges & Venue Row */}
-                        <View style={styles.cardFooterRow}>
-                          <View style={styles.venueRow}>
-                            <Feather
-                              name="map-pin"
-                              size={12}
-                              color={theme.colors.textMuted}
-                              style={{ marginRight: 5 }}
-                            />
-                            <Text style={styles.venueText}>{evt.venue}</Text>
-                          </View>
-
-                          {/* Extra Scope Context Badge */}
-                          {evt.clubName && (
-                            <View style={styles.clubContextBadge}>
-                              <Text style={styles.clubContextText}>{evt.clubName}</Text>
-                            </View>
-                          )}
-
-                          {evt.targetSections && (
-                            <View
-                              style={[
-                                styles.sectionContextBadge,
-                                evt.isReadOnly && styles.readOnlySectionBadge,
-                              ]}
-                            >
-                              {evt.isReadOnly && (
-                                <Feather
-                                  name="eye"
-                                  size={10}
-                                  color={theme.colors.accentAmber}
-                                  style={{ marginRight: 3 }}
-                                />
-                              )}
-                              <Text
-                                style={[
-                                  styles.sectionContextText,
-                                  evt.isReadOnly && styles.readOnlySectionText,
-                                ]}
-                              >
-                                {evt.targetSections.join(', ')}{' '}
-                                {evt.isReadOnly ? '(UC-04 READ-ONLY)' : ''}
-                              </Text>
-                            </View>
-                          )}
-
-                          {evt.status === EventStatus.PENDING_APPROVAL && (
-                            <View style={styles.approvalBadge}>
-                              <Feather
-                                name="alert-circle"
-                                size={10}
-                                color={theme.colors.accentAmber}
-                                style={{ marginRight: 3 }}
-                              />
-                              <Text style={styles.approvalBadgeText}>PENDING APPROVAL</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
+              );
+            })}
           </View>
         </ScrollView>
       )}
 
-      {/* Publish Form Screen */}
-      {activeTab === 'create' && (
-        <ScrollView style={styles.mainScroll} contentContainerStyle={styles.createScrollContent}>
-          <View style={styles.createFormContainer}>
-            <View style={styles.createHeader}>
-              <Text style={styles.createTitle}>AUTHOR NEW EVENT</Text>
-              <Text style={styles.createSubtitle}>
-                Publish verified event to the student calendar or request campus broadcast.
-              </Text>
+      {/* VIEW 2: CALENDAR STACKED FEED (Image 1 Right Screen) */}
+      {viewMode === 'calendar' && (
+        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+          {/* Subtle Month Navigation */}
+          <View style={styles.calendarMonthHeader}>
+            <Text style={styles.monthPrev}>OCT</Text>
+            <View style={styles.monthCurrentRow}>
+              <Feather name="chevron-left" size={16} color={theme.colors.textMuted} />
+              <Text style={styles.monthCurrentText}>NOV 2026</Text>
+              <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
             </View>
+            <Text style={styles.monthNext}>DEC</Text>
+          </View>
 
-            {/* Scope Selection Tiles */}
-            <Text style={styles.inputSectionLabel}>SELECT BROADCAST SCOPE</Text>
-            <View style={styles.scopeTileRow}>
+          {/* Stacked Day Blocks (Generous Negative Space) */}
+          <View style={styles.dayBlocksContainer}>
+            {dayGroups.map(group => {
+              const isSelected = group.dateKey === selectedDayKey;
+
+              return (
+                <TouchableOpacity
+                  key={group.dateKey}
+                  style={[
+                    styles.dayBlockCard,
+                    { backgroundColor: group.tintBg },
+                    isSelected && styles.dayBlockCardSelected,
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setSelectedDayKey(group.dateKey);
+                    setViewMode('today');
+                  }}
+                >
+                  {/* Left Column: Big Date */}
+                  <View style={styles.dayBlockLeft}>
+                    <Text style={styles.dayBlockWeekday}>{group.dayOfWeek}</Text>
+                    <Text style={styles.dayBlockNumber}>{group.dayNumber}</Text>
+                    <Text style={styles.dayBlockMonth}>{group.monthShort}</Text>
+                  </View>
+
+                  {/* Right Column: Clean Event Lines */}
+                  <View style={styles.dayBlockRight}>
+                    {group.events.map(evt => (
+                      <View key={evt.id} style={styles.dayBlockEventItem}>
+                        <Text style={styles.dayBlockEventTime}>{formatTime(evt.startTime)}</Text>
+                        <Text style={styles.dayBlockEventTitle} numberOfLines={1}>
+                          {evt.title}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* VIEW 3: AUTHOR EVENT (Clean, Uncluttered Form) */}
+      {viewMode === 'create' && (
+        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.createContainer}>
+            <Text style={styles.createTitle}>New Event</Text>
+            <Text style={styles.createSubtitle}>
+              Publish an event directly to the campus calendar without noise.
+            </Text>
+
+            {/* Scope Toggle (Clean text options, no heavy badges) */}
+            <View style={styles.scopeSelector}>
               <TouchableOpacity
-                style={[
-                  styles.scopeTile,
-                  formScope === ScopeType.SECTION && styles.scopeTileActiveSection,
-                ]}
+                style={[styles.scopeBtn, formScope === ScopeType.SECTION && styles.scopeBtnActive]}
                 onPress={() => setFormScope(ScopeType.SECTION)}
               >
-                <Feather
-                  name="book-open"
-                  size={18}
-                  color={
-                    formScope === ScopeType.SECTION ? theme.colors.section : theme.colors.textMuted
-                  }
-                />
                 <Text
                   style={[
-                    styles.scopeTileTitle,
-                    formScope === ScopeType.SECTION && styles.scopeTileTitleActive,
+                    styles.scopeBtnText,
+                    formScope === ScopeType.SECTION && styles.scopeBtnTextActive,
                   ]}
                 >
-                  Section Event
-                </Text>
-                <Text style={styles.scopeTileDesc}>
-                  Internal lectures & reviews for {user.course}-{user.section}
+                  Section
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.scopeTile,
-                  formScope === ScopeType.CLUB && styles.scopeTileActiveClub,
-                ]}
+                style={[styles.scopeBtn, formScope === ScopeType.CLUB && styles.scopeBtnActive]}
                 onPress={() => setFormScope(ScopeType.CLUB)}
               >
-                <Feather
-                  name="code"
-                  size={18}
-                  color={formScope === ScopeType.CLUB ? theme.colors.club : theme.colors.textMuted}
-                />
                 <Text
                   style={[
-                    styles.scopeTileTitle,
-                    formScope === ScopeType.CLUB && styles.scopeTileTitleActive,
+                    styles.scopeBtnText,
+                    formScope === ScopeType.CLUB && styles.scopeBtnTextActive,
                   ]}
                 >
-                  Club Event
+                  Club
                 </Text>
-                <Text style={styles.scopeTileDesc}>Society hackathons & contests</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.scopeTile,
-                  formScope === ScopeType.CAMPUS && styles.scopeTileActiveCampus,
-                ]}
+                style={[styles.scopeBtn, formScope === ScopeType.CAMPUS && styles.scopeBtnActive]}
                 onPress={() => setFormScope(ScopeType.CAMPUS)}
               >
-                <Feather
-                  name="globe"
-                  size={18}
-                  color={
-                    formScope === ScopeType.CAMPUS ? theme.colors.campus : theme.colors.textMuted
-                  }
-                />
                 <Text
                   style={[
-                    styles.scopeTileTitle,
-                    formScope === ScopeType.CAMPUS && styles.scopeTileTitleActive,
+                    styles.scopeBtnText,
+                    formScope === ScopeType.CAMPUS && styles.scopeBtnTextActive,
                   ]}
                 >
-                  Campus Event
+                  Campus
                 </Text>
-                <Text style={styles.scopeTileDesc}>Requires Admin approval (UC-14)</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Form Fields */}
-            <Text style={styles.inputSectionLabel}>EVENT DETAILS</Text>
+            {/* Inputs */}
             <TextInput
-              style={styles.textInput}
-              placeholder="Event Title (e.g. Distributed Systems Lab)"
-              placeholderTextColor={theme.colors.textDim}
+              style={styles.inputField}
+              placeholder="Event Title"
+              placeholderTextColor={theme.colors.textMuted}
               value={formTitle}
               onChangeText={setFormTitle}
             />
 
             <TextInput
-              style={styles.textInput}
-              placeholder="Venue (e.g. Room 204 or Main Auditorium)"
-              placeholderTextColor={theme.colors.textDim}
+              style={styles.inputField}
+              placeholder="Venue or Room"
+              placeholderTextColor={theme.colors.textMuted}
               value={formVenue}
               onChangeText={setFormVenue}
             />
 
             <TextInput
-              style={[styles.textInput, styles.textArea]}
-              placeholder="Detailed description, prerequisites, and instructions..."
-              placeholderTextColor={theme.colors.textDim}
+              style={[styles.inputField, styles.inputArea]}
+              placeholder="Notes or Agenda (Optional)"
+              placeholderTextColor={theme.colors.textMuted}
               value={formDesc}
               onChangeText={setFormDesc}
               multiline
               numberOfLines={4}
             />
 
-            {/* Submit Action Button */}
-            <TouchableOpacity
-              style={styles.submitBtn}
-              activeOpacity={0.85}
-              onPress={handleCreateEvent}
-            >
-              <Feather name="send" size={16} color="#ffffff" style={{ marginRight: 8 }} />
-              <Text style={styles.submitBtnText}>
-                {formScope === ScopeType.CAMPUS
-                  ? 'SUBMIT FOR APPROVAL (UC-14)'
-                  : 'PUBLISH TO CALENDAR'}
-              </Text>
+            <TouchableOpacity style={styles.publishBtn} activeOpacity={0.85} onPress={handleCreate}>
+              <Text style={styles.publishBtnText}>Publish Event</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       )}
-
-      {/* Profile & Persona Screen */}
-      {activeTab === 'profile' && (
-        <ScrollView style={styles.mainScroll} contentContainerStyle={styles.profileScrollContent}>
-          <View style={styles.profileCard}>
-            <View style={styles.profileAvatar}>
-              <Feather name="user" size={32} color={theme.colors.accentPrimary} />
-            </View>
-            <Text style={styles.profileName}>{user.name}</Text>
-            <Text style={styles.profileEnrollment}>{user.enrollmentNo}</Text>
-
-            <View style={styles.profileDivider} />
-
-            <View style={styles.profileMetaGrid}>
-              <View style={styles.profileMetaItem}>
-                <Text style={styles.metaLabel}>COURSE & YEAR</Text>
-                <Text style={styles.metaValue}>
-                  {user.course} · Year {user.year}
-                </Text>
-              </View>
-              <View style={styles.profileMetaItem}>
-                <Text style={styles.metaLabel}>HOME SECTION</Text>
-                <Text style={styles.metaValue}>{user.section}</Text>
-              </View>
-              <View style={styles.profileMetaItem}>
-                <Text style={styles.metaLabel}>ACTIVE POSITIONS</Text>
-                <Text style={styles.metaValue}>{user.positions.join(', ') || 'Student'}</Text>
-              </View>
-              <View style={styles.profileMetaItem}>
-                <Text style={styles.metaLabel}>AFFILIATED CLUBS</Text>
-                <Text style={styles.metaValue}>{user.clubs.join(', ') || 'None'}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* OOPS & Architecture Principles Card */}
-          <View style={styles.architectureCard}>
-            <View style={styles.archHeader}>
-              <Feather
-                name="cpu"
-                size={16}
-                color={theme.colors.section}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={styles.archTitle}>SYSTEM ARCHITECTURE</Text>
-            </View>
-            <Text style={styles.archDescription}>
-              • 4-Layer Domain Architecture (Domain, Service, Repository, Controller){'\n'}•
-              Polymorphic Scope Filtering (Campus, Club, Section){'\n'}• Granular Role-Based Access
-              Control (CR, Club Lead, Admin){'\n'}• Strict UTC Database Persist with Local IST
-              Display
-            </Text>
-          </View>
-        </ScrollView>
-      )}
-
-      {/* Fixed Bottom Glassmorphic Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={[styles.navBtn, activeTab === 'calendar' && styles.navBtnActive]}
-          onPress={() => setActiveTab('calendar')}
-          activeOpacity={0.8}
-        >
-          <Feather
-            name="calendar"
-            size={18}
-            color={activeTab === 'calendar' ? theme.colors.accentPrimary : theme.colors.textMuted}
-          />
-          <Text style={[styles.navBtnText, activeTab === 'calendar' && styles.navBtnTextActive]}>
-            CALENDAR
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.navBtn, activeTab === 'create' && styles.navBtnActive]}
-          onPress={() => setActiveTab('create')}
-          activeOpacity={0.8}
-        >
-          <Feather
-            name="plus-circle"
-            size={18}
-            color={activeTab === 'create' ? theme.colors.accentPrimary : theme.colors.textMuted}
-          />
-          <Text style={[styles.navBtnText, activeTab === 'create' && styles.navBtnTextActive]}>
-            PUBLISH
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.navBtn, activeTab === 'profile' && styles.navBtnActive]}
-          onPress={() => setActiveTab('profile')}
-          activeOpacity={0.8}
-        >
-          <Feather
-            name="user"
-            size={18}
-            color={activeTab === 'profile' ? theme.colors.accentPrimary : theme.colors.textMuted}
-          />
-          <Text style={[styles.navBtnText, activeTab === 'profile' && styles.navBtnTextActive]}>
-            PERSONA
-          </Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -964,827 +462,346 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.bg,
   },
-  header: {
-    backgroundColor: theme.colors.bgSubtle,
-    paddingHorizontal: 16,
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 22,
     paddingTop:
       Platform.OS === 'android'
         ? RNStatusBar.currentHeight
-          ? RNStatusBar.currentHeight + 8
-          : 36
-        : 14,
-    paddingBottom: 14,
+          ? RNStatusBar.currentHeight + 12
+          : 40
+        : 16,
+    paddingBottom: 16,
+    backgroundColor: theme.colors.bg,
+  },
+  segmentedControls: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.surfaceBorderSubtle,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderRadius: theme.radius.full,
+    padding: 4,
+    gap: 4,
   },
-  brandContainer: {
-    flex: 1,
+  segmentBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: theme.radius.full,
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  segmentBtnActive: {
+    backgroundColor: theme.colors.pillActiveBg,
   },
-  brandTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: 2.2,
-  },
-  liveIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 245, 155, 0.1)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 245, 155, 0.25)',
-  },
-  liveDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: theme.colors.section,
-    marginRight: 5,
-  },
-  liveText: {
-    color: theme.colors.section,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  userSubtitle: {
+  segmentBtnText: {
     color: theme.colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  personaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-  },
-  personaBadgeText: {
-    color: theme.colors.textPrimary,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  mainScroll: {
-    flex: 1,
-    backgroundColor: theme.colors.bg,
-  },
-  mainScrollContent: {
-    paddingBottom: 80,
-  },
-  calendarControlBar: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    backgroundColor: theme.colors.bg,
-  },
-  monthNavRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  monthTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  yearTitle: {
-    color: theme.colors.accentPrimary,
-    fontWeight: '700',
-  },
-  navArrows: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  iconNavBtn: {
-    backgroundColor: theme.colors.surface,
-    padding: 7,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-  },
-  todayBtn: {
-    backgroundColor: theme.colors.surfaceElevated,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-  },
-  todayBtnText: {
-    color: theme.colors.textPrimary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  viewModeToggle: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.surface,
-    padding: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorderSubtle,
-  },
-  viewModeBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 6,
-    borderRadius: 6,
-    gap: 6,
-  },
-  viewModeBtnActive: {
-    backgroundColor: theme.colors.surfaceElevated,
-  },
-  viewModeBtnText: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  viewModeBtnTextActive: {
-    color: theme.colors.textPrimary,
-    fontWeight: '700',
-  },
-  monthContainer: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-    padding: 10,
-  },
-  dayOfWeekHeaderRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.surfaceBorderSubtle,
-    paddingBottom: 6,
-    marginBottom: 4,
-  },
-  dayOfWeekHeaderCell: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  dayOfWeekHeaderText: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  weekendHeaderText: {
-    color: theme.colors.textDim,
-  },
-  daysMatrixGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  matrixDayCell: {
-    width: '14.28%',
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    marginVertical: 2,
-  },
-  matrixDayOutside: {
-    opacity: 0.25,
-  },
-  matrixDayToday: {
-    borderWidth: 1,
-    borderColor: theme.colors.nowLaser,
-    backgroundColor: theme.colors.nowLaserBg,
-  },
-  matrixDaySelected: {
-    backgroundColor: theme.colors.surfaceElevated,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accentPrimary,
-  },
-  matrixDayNumber: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  matrixDayNumberOutside: {
-    color: theme.colors.textDim,
-  },
-  matrixDayNumberToday: {
-    color: theme.colors.nowLaser,
-    fontWeight: '900',
-  },
-  matrixDayNumberSelected: {
-    color: theme.colors.accentPrimary,
-    fontWeight: '800',
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 2,
-    marginTop: 2,
-    height: 4,
-    alignItems: 'center',
-  },
-  eventDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
-  weekStripContainer: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 8,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-    padding: 6,
-    justifyContent: 'space-between',
-  },
-  weekStripCell: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  weekStripCellToday: {
-    borderWidth: 1,
-    borderColor: theme.colors.nowLaser,
-    backgroundColor: theme.colors.nowLaserBg,
-  },
-  weekStripCellSelected: {
-    backgroundColor: theme.colors.surfaceElevated,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accentPrimary,
-  },
-  weekStripDayName: {
-    color: theme.colors.textMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  weekStripDayNameSelected: {
-    color: theme.colors.accentPrimary,
-  },
-  weekStripDayNum: {
-    color: theme.colors.textPrimary,
     fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  weekStripDayNumToday: {
-    color: theme.colors.nowLaser,
-    fontWeight: '900',
-  },
-  weekStripDayNumSelected: {
-    color: theme.colors.accentPrimary,
-    fontWeight: '900',
-  },
-  filtersSection: {
-    marginTop: 16,
-    paddingHorizontal: 16,
-  },
-  scopeChipsScroll: {
-    gap: 8,
-    paddingBottom: 8,
-  },
-  scopeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-  },
-  scopeChipActive: {
-    backgroundColor: theme.colors.surfaceElevated,
-    borderColor: theme.colors.accentPrimary,
-  },
-  scopeChipActiveCampus: {
-    backgroundColor: theme.colors.campusBg,
-    borderColor: theme.colors.campus,
-  },
-  scopeChipActiveClub: {
-    backgroundColor: theme.colors.clubBg,
-    borderColor: theme.colors.club,
-  },
-  scopeChipActiveSection: {
-    backgroundColor: theme.colors.sectionBg,
-    borderColor: theme.colors.section,
-  },
-  chipIndicatorDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  scopeChipText: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
-  scopeChipTextActive: {
-    color: theme.colors.textPrimary,
-  },
-  scopeChipTextActiveCampus: {
-    color: theme.colors.campus,
-  },
-  scopeChipTextActiveClub: {
-    color: theme.colors.club,
-  },
-  scopeChipTextActiveSection: {
-    color: theme.colors.section,
-  },
-  sectionLensPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-    marginTop: 6,
-  },
-  sectionLensPillActive: {
-    borderColor: theme.colors.sectionBorder,
-    backgroundColor: theme.colors.sectionBg,
-  },
-  sectionLensLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
     fontWeight: '600',
   },
-  sectionLensValue: {
-    color: theme.colors.section,
+  segmentBtnTextActive: {
+    color: theme.colors.pillActiveText,
     fontWeight: '700',
   },
-  agendaSection: {
+  plusBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: theme.colors.surfaceSubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  plusBtnActive: {
+    backgroundColor: theme.colors.pillActiveBg,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 22,
+    paddingBottom: 40,
+  },
+
+  // Today View Styles
+  heroDateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginTop: 18,
-    paddingHorizontal: 16,
+    marginBottom: 26,
   },
-  agendaHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  heroDateLeft: {
     alignItems: 'flex-start',
-    marginBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.surfaceBorderSubtle,
-    paddingBottom: 8,
   },
-  agendaDateTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  agendaSubtitle: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
+  heroDayOfWeek: {
+    fontSize: 15,
     fontWeight: '600',
-    marginTop: 2,
-    letterSpacing: 0.8,
-  },
-  nowBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.nowLaserBg,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: theme.colors.nowLaser,
-  },
-  nowPulse: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.nowLaser,
-    marginRight: 5,
-  },
-  nowBadgeText: {
-    color: theme.colors.nowLaser,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  emptyDayContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorderSubtle,
-  },
-  emptyDayTitle: {
     color: theme.colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 12,
+    marginBottom: 2,
   },
-  emptyDaySubtitle: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  timelineStream: {
-    gap: 12,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  timelineGutter: {
-    width: 60,
-    alignItems: 'flex-start',
-    paddingTop: 4,
-  },
-  gutterTimeText: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  gutterLineContainer: {
-    flex: 1,
-    alignItems: 'center',
-    width: 14,
-    marginTop: 6,
-    marginLeft: 6,
-  },
-  gutterNode: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 2,
-    backgroundColor: theme.colors.bg,
-  },
-  gutterConnector: {
-    flex: 1,
-    width: 1.5,
-    backgroundColor: theme.colors.surfaceBorder,
-    marginTop: 4,
-  },
-  eventCard: {
-    flex: 1,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-    borderLeftWidth: 4,
-    padding: 14,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  scopeTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-  },
-  scopeTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  cardTimePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardTimeText: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  cardDurationText: {
-    color: theme.colors.textMuted,
-    fontSize: 10,
-    marginLeft: 4,
-  },
-  eventTitle: {
+  heroDateNumber: {
+    fontSize: 52,
+    fontWeight: '900',
     color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 19,
-    marginBottom: 6,
+    letterSpacing: -1.5,
+    lineHeight: 56,
   },
-  eventDesc: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: 10,
+  heroMonthText: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: 2,
+    marginTop: -4,
   },
-  cardFooterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.surfaceBorderSubtle,
+  heroContextRight: {
+    alignItems: 'flex-end',
     paddingTop: 8,
   },
-  venueRow: {
+  contextRole: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+  },
+  contextSection: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+  },
+  sectionCount: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+  },
+  eventsList: {
+    gap: 16,
+  },
+  eventCard: {
+    borderRadius: theme.radius.xl,
+    padding: 22,
+  },
+  eventTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    lineHeight: 26,
+    marginBottom: 18,
+  },
+  timeSpanRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  timeBlock: {
+    alignItems: 'flex-start',
+  },
+  timeValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+  },
+  timeSub: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  durationPill: {
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.radius.full,
+  },
+  durationText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
+    paddingTop: 14,
+  },
+  venueContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   venueText: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
     fontWeight: '500',
   },
-  clubContextBadge: {
-    backgroundColor: theme.colors.clubBg,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  readOnlyNote: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: theme.colors.textSecondary,
   },
-  clubContextText: {
-    color: theme.colors.club,
-    fontSize: 10,
+
+  // Calendar Feed Styles (Image 1 Right Screen)
+  calendarMonthHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 18,
+    marginBottom: 8,
+  },
+  monthPrev: {
+    fontSize: 14,
     fontWeight: '700',
+    color: theme.colors.textMuted,
+    letterSpacing: 1,
   },
-  sectionContextBadge: {
+  monthCurrentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.sectionBg,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    gap: 8,
   },
-  sectionContextText: {
-    color: theme.colors.section,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  readOnlySectionBadge: {
-    backgroundColor: theme.colors.accentAmberBg,
-    borderWidth: 1,
-    borderColor: theme.colors.accentAmberBorder,
-  },
-  readOnlySectionText: {
-    color: theme.colors.accentAmber,
-  },
-  approvalBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.accentAmberBg,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  approvalBadgeText: {
-    color: theme.colors.accentAmber,
-    fontSize: 9,
+  monthCurrentText: {
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    color: theme.colors.textPrimary,
+    letterSpacing: 1,
   },
-  createScrollContent: {
-    padding: 16,
-    paddingBottom: 90,
+  monthNext: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
+    letterSpacing: 1,
   },
-  createFormContainer: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-    padding: 18,
+  dayBlocksContainer: {
+    gap: 14,
   },
-  createHeader: {
-    marginBottom: 16,
+  dayBlockCard: {
+    borderRadius: theme.radius.xl,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dayBlockCardSelected: {
+    borderWidth: 2,
+    borderColor: theme.colors.pillActiveBg,
+  },
+  dayBlockLeft: {
+    width: 90,
+    alignItems: 'flex-start',
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(0, 0, 0, 0.08)',
+    paddingRight: 12,
+  },
+  dayBlockWeekday: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  dayBlockNumber: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: theme.colors.textPrimary,
+    lineHeight: 36,
+  },
+  dayBlockMonth: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    letterSpacing: 1,
+  },
+  dayBlockRight: {
+    flex: 1,
+    paddingLeft: 16,
+    gap: 10,
+  },
+  dayBlockEventItem: {
+    flexDirection: 'column',
+  },
+  dayBlockEventTime: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  dayBlockEventTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+  },
+
+  // Author Event Form Styles
+  createContainer: {
+    backgroundColor: theme.colors.bgCard,
+    borderRadius: theme.radius.xl,
+    padding: 24,
+    marginTop: 10,
   },
   createTitle: {
+    fontSize: 22,
+    fontWeight: '800',
     color: theme.colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+    marginBottom: 4,
   },
   createSubtitle: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    marginTop: 4,
-    lineHeight: 17,
-  },
-  inputSectionLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginTop: 14,
-    marginBottom: 8,
-  },
-  scopeTileRow: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  scopeTile: {
-    backgroundColor: theme.colors.surfaceElevated,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-    padding: 12,
-  },
-  scopeTileActiveSection: {
-    borderColor: theme.colors.section,
-    backgroundColor: theme.colors.sectionBg,
-  },
-  scopeTileActiveClub: {
-    borderColor: theme.colors.club,
-    backgroundColor: theme.colors.clubBg,
-  },
-  scopeTileActiveCampus: {
-    borderColor: theme.colors.campus,
-    backgroundColor: theme.colors.campusBg,
-  },
-  scopeTileTitle: {
-    color: theme.colors.textSecondary,
     fontSize: 13,
-    fontWeight: '700',
-    marginTop: 6,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 20,
   },
-  scopeTileTitleActive: {
-    color: theme.colors.textPrimary,
-  },
-  scopeTileDesc: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  textInput: {
-    backgroundColor: theme.colors.bgSubtle,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-    color: theme.colors.textPrimary,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-    marginBottom: 10,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  submitBtn: {
+  scopeSelector: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderRadius: theme.radius.md,
+    padding: 4,
+    marginBottom: 16,
+  },
+  scopeBtn: {
+    flex: 1,
+    paddingVertical: 10,
     alignItems: 'center',
-    backgroundColor: theme.colors.accentBlue,
-    borderRadius: 8,
-    paddingVertical: 13,
-    marginTop: 12,
+    borderRadius: theme.radius.sm,
   },
-  submitBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
+  scopeBtnActive: {
+    backgroundColor: theme.colors.bgCard,
   },
-  profileScrollContent: {
-    padding: 16,
-    paddingBottom: 90,
+  scopeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
   },
-  profileCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-    padding: 20,
-    alignItems: 'center',
+  scopeBtnTextActive: {
+    color: theme.colors.textPrimary,
+    fontWeight: '700',
   },
-  profileAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: theme.colors.surfaceElevated,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accentPrimary,
-    justifyContent: 'center',
-    alignItems: 'center',
+  inputField: {
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 14,
+    color: theme.colors.textPrimary,
     marginBottom: 12,
   },
-  profileName: {
-    color: theme.colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  inputArea: {
+    height: 90,
+    textAlignVertical: 'top',
   },
-  profileEnrollment: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1,
-    marginTop: 2,
-  },
-  profileDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: theme.colors.surfaceBorderSubtle,
-    marginVertical: 16,
-  },
-  profileMetaGrid: {
-    width: '100%',
-    gap: 12,
-  },
-  profileMetaItem: {
-    backgroundColor: theme.colors.surfaceElevated,
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorderSubtle,
-  },
-  metaLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 3,
-  },
-  metaValue: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  architectureCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.surfaceBorder,
-    padding: 16,
-    marginTop: 14,
-  },
-  archHeader: {
-    flexDirection: 'row',
+  publishBtn: {
+    backgroundColor: theme.colors.pillActiveBg,
+    borderRadius: theme.radius.full,
+    paddingVertical: 15,
     alignItems: 'center',
-    marginBottom: 8,
+    marginTop: 8,
   },
-  archTitle: {
-    color: theme.colors.section,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  archDescription: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 62,
-    backgroundColor: theme.colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.surfaceBorder,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  navBtn: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  navBtnActive: {},
-  navBtnText: {
-    color: theme.colors.textMuted,
-    fontSize: 10,
+  publishBtnText: {
+    color: theme.colors.pillActiveText,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.8,
-    marginTop: 4,
-  },
-  navBtnTextActive: {
-    color: theme.colors.accentPrimary,
-    fontWeight: '800',
   },
 });
