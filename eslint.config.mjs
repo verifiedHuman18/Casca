@@ -13,6 +13,8 @@ export default tseslint.config(
       '**/__pycache__/**',
       '**/coverage/**',
       '**/*.tsbuildinfo',
+      '**/.gemini/**',
+      '**/.github/**',
     ],
   },
   js.configs.recommended,
