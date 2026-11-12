@@ -1,6 +1,6 @@
-# Campus Management Platform — Mobile Client (Expo / React Native)
+# Casca — Mobile Client (Expo / React Native)
 
-This directory contains the cross-platform mobile client for the Campus Management Platform, built with **Expo SDK** and **React Native** (TypeScript).
+This directory contains the cross-platform mobile client for **Casca**, built with **Expo SDK** and **React Native** (TypeScript).
 
 ---
 

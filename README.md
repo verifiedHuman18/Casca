@@ -1,8 +1,8 @@
-# Campus Management Platform
+# Casca
 
-[![CI](https://github.com/humaniac/SEnOOM/actions/workflows/ci.yml/badge.svg)](https://github.com/humaniac/SEnOOM/actions/workflows/ci.yml)
+[![CI](https://github.com/verifiedHuman18/Casca/actions/workflows/ci.yml/badge.svg)](https://github.com/verifiedHuman18/Casca/actions/workflows/ci.yml)
 
-> **OOPS & Software Engineering Project** · Team of 3
+> **Casca — Campus Management Platform** · OOPS & Software Engineering Project · Team of 3
 
 A unified campus management platform that centralizes campus-wide events, club activities, and section-specific notices into one calendar filtered to what matters to each student, with fine-grained role-based publishing for club office bearers, class representatives (CRs), and admins.
 

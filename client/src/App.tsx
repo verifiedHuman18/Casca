@@ -109,7 +109,7 @@ export default function App() {
       {/* Top Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Campus Management</Text>
+          <Text style={styles.headerTitle}>Casca</Text>
           <Text style={styles.headerSubtitle}>
             {user.name} · {user.course}-{user.section} (Yr {user.year})
           </Text>

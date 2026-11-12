@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "Campus Management Platform - OOPS & SE Project",
+  "description": "Casca - Campus Management Platform - OOPS & SE Project",
   "workspaces": [
     "backend",
     "client",

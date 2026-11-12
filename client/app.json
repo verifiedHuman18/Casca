@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "Campus Management",
-    "slug": "senoom-campus",
+    "name": "Casca",
+    "slug": "casca",
+    "scheme": "casca",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,10 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.senoom.campus"
+      "bundleIdentifier": "com.casca.app"
     },
     "android": {
-      "package": "com.senoom.campus",
+      "package": "com.casca.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1e3a8a"
