@@ -1,5 +1,5 @@
 import type { AuthUser, EventRef } from '@senoom/shared';
-import { PermissionService } from '../../services/Permissions';
+import { PermissionService } from '../../services/PermissionService';
 import { ClubEvent } from '../domain/ClubEvent';
 import { Event } from '../domain/Event';
 import { SectionEvent } from '../domain/SectionEvent';

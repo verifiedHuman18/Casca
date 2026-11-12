@@ -2,6 +2,7 @@
 node_modules/
 .pnp
 .pnp.js
+.venv
 
 # Production and build outputs
 dist/
@@ -49,6 +50,17 @@ ios/build/
 # Testing & Coverage
 coverage/
 .nyc_output/
+
+# Python & Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
 
 # Operating System files
 .DS_Store

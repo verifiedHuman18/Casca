@@ -3,6 +3,9 @@ dist/
 build/
 coverage/
 .expo/
+.venv/
+venv/
+__pycache__/
 .husky/_/
 package-lock.json
 *.tsbuildinfo
