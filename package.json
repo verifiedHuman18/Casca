@@ -23,6 +23,7 @@
     "@commitlint/cli": "^19.6.1",
     "@commitlint/config-conventional": "^19.6.0",
     "@eslint/js": "^9.18.0",
+    "@types/react": "^19.3.0",
     "eslint": "^9.18.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.11",
@@ -35,6 +36,7 @@
     "bcrypt@6.0.0": true
   },
   "overrides": {
+    "@types/react": "^19.3.0",
     "@typescript-eslint/typescript-estree": {
       "minimatch": "^11.0.5"
     }
