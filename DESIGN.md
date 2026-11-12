@@ -72,21 +72,19 @@ Inspired by high-craft editorial design and modern minimalist calendar architect
 ## Layout
 
 - **Top Navigation Bar**:
-  - Left: Segmented control pills: `Today` (solid Obsidian pill `#141518`) | `Calendar` (subtle off-white stone pill).
-  - Right: Dedicated circular Settings & Profile button (`44×44dp`, `surface-subtle`, Feather `sliders` icon). Opens the interactive **Profile & Settings** sheet.
-- **Bottom Floating Action Button (FAB)**:
-  - Anchored at bottom-right (`58×58dp`, `pill-active-bg` `#141518`, 8dp elevation, 24dp white `plus` icon).
-  - Opens the calm **New Event** authoring sheet directly over both `Today` and `Calendar` views with generous 110dp scroll clearance.
-- **Profile & Settings Sheet**:
-  - User identity card (`Aarav Sharma · IIT2023001 · IT-A Year 2`).
-  - Active Campus Persona switcher (`Student [Read-Only]`, `Class Representative [IT-A]`, `Club Coordinator`).
-  - Live campus sync gateway and offline cache metrics.
-- **Today Mode (Day Schedule)**:
-  - Asymmetrical date hero header (`12.11 NOV`) with aligned secondary academic metadata.
-  - Expansive card blocks with 22px internal padding and 16px margins.
-- **Calendar Mode (Multi-Day Stacked Feed)**:
-  - Subtle month nav: `OCT < NOV 2026 > DEC`.
-  - Stacked multi-day cards showing left-hand prominent date numbers and clean timeline items on the right.
+  - Left: Segmented control pills: `Day` (active pill `#141518` / `#f0ede6` in dark mode) | `Month` (subtle stone pill).
+  - Right: Dedicated circular Settings button (`44×44dp`, `surface-subtle`, Feather `sliders` icon). Opens the swipeable **Profile & Settings** drawer.
+- **Main Screens**:
+  - **Day View**: Asymmetrical date hero header (`12.11 NOV`), quick persona pill, and day schedule cards. Tapping any event navigates directly to the dedicated **Event Details** screen.
+  - **Month View**: Full month interactive calendar grid (`< NOVEMBER 2026 >`) with day cells, today indicator, event dots, and selected date schedule list below the grid. Tapping an event opens the **Event Details** screen.
+  - **Event Details Screen**: Standalone view with back button, large editorial event title, start/end times with duration pill, logistics & venue card, audience scope, agenda/notes, and interactive reminder action.
+- **Swipeable Drawers (Bottom Sheets)**:
+  - **Profile & Settings Drawer**: Swipeable down via top drag handle and header zone (`PanResponder`). Features a prominent **Appearance** selector (`Light` | `Dark Mode`), student profile card, interactive **Campus Persona** switcher (`Student`, `Class Rep`, `Club Coordinator`), and sync status.
+  - **New Event Drawer**: Triggered via bottom-right FAB (`58×58dp`). Swipeable down to dismiss. Contains scope selector (`Section` | `Club` | `Campus`), title, venue, and description inputs.
+  - **Static Overlay Guarantee**: When drawers open, the backdrop overlay appears immediately without fade or slide animation, while only the drawer container animates smoothly upwards.
+- **Dual Theme System**:
+  - **Light Theme**: Warm bone/sand canvas (`#f4f3ef`), card white (`#ffffff`), Obsidian typography (`#141518`), pastel architectural tints (`#faedd9`, `#e3ece5`, `#e8e5f2`, `#e3ecf5`).
+  - **Dark Theme**: Warm charcoal/espresso canvas (`#1a1917`), elevated surfaces (`#242220`), warm off-white typography (`#f0ede6`), deep earthen tints (`#2d2318`, `#1c261e`, `#211e30`, `#1a2230`). Authored from first principles without artificial blue-black or neon.
 
 ## Shapes
 
