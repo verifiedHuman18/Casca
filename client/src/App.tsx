@@ -8,6 +8,8 @@ import {
   TextInput,
   SafeAreaView,
   Alert,
+  Platform,
+  StatusBar as RNStatusBar,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { ScopeType, EventStatus, UIEventItem, UserSession } from './types';
@@ -371,7 +373,13 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#1e3a8a',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop:
+      Platform.OS === 'android'
+        ? RNStatusBar.currentHeight
+          ? RNStatusBar.currentHeight + 8
+          : 36
+        : 14,
+    paddingBottom: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
