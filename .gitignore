@@ -35,6 +35,8 @@ logs/
 .expo-shared/
 web-build/
 .metro-health-check*
+client/android/
+client/ios/
 
 # Android build artifacts
 android/app/build/
