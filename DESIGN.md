@@ -71,8 +71,16 @@ Inspired by high-craft editorial design and modern minimalist calendar architect
 
 ## Layout
 
-- **Top Segmented Control**:
-  - Pill switcher: `Today` (solid black pill `#141518`) | `Calendar` (subtle border pill) | `+` circular action button.
+- **Top Navigation Bar**:
+  - Left: Segmented control pills: `Today` (solid Obsidian pill `#141518`) | `Calendar` (subtle off-white stone pill).
+  - Right: Dedicated circular Settings & Profile button (`44×44dp`, `surface-subtle`, Feather `sliders` icon). Opens the interactive **Profile & Settings** sheet.
+- **Bottom Floating Action Button (FAB)**:
+  - Anchored at bottom-right (`58×58dp`, `pill-active-bg` `#141518`, 8dp elevation, 24dp white `plus` icon).
+  - Opens the calm **New Event** authoring sheet directly over both `Today` and `Calendar` views with generous 110dp scroll clearance.
+- **Profile & Settings Sheet**:
+  - User identity card (`Aarav Sharma · IIT2023001 · IT-A Year 2`).
+  - Active Campus Persona switcher (`Student [Read-Only]`, `Class Representative [IT-A]`, `Club Coordinator`).
+  - Live campus sync gateway and offline cache metrics.
 - **Today Mode (Day Schedule)**:
   - Asymmetrical date hero header (`12.11 NOV`) with aligned secondary academic metadata.
   - Expansive card blocks with 22px internal padding and 16px margins.
