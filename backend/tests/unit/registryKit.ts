@@ -13,12 +13,15 @@ import { AuthService } from '../../src/services/AuthService';
 import { RegistryService } from '../../src/services/RegistryService';
 import { FakeAdminRepository, fastHasher, SECRET, SECTION_ID } from './authTestKit';
 import { assign, makeSection } from './factories';
-
+import { PermissionService } from '../../src/services/PermissionService';
+import { RoleService } from '../../src/services/RoleService';
 export const SECTION_2_ID = '22222222-2222-4222-8222-222222222222';
 export const CLUB_ID = '33333333-3333-4333-8333-333333333333';
 export const POSITION_ID = '44444444-4444-4444-8444-444444444444';
 export const STUDENT_ID = '55555555-5555-4555-8555-555555555555';
 export const ADMIN_PASSWORD = 'admin password';
+export const CR_POSITION_ID = '66666666-6666-4666-8666-666666666666';
+export const CAMPUS_POSITION_ID = '77777777-7777-4777-8777-777777777777';
 
 export class RecordingAudit implements AuditLog {
   entries: AuditEntry[] = [];
@@ -58,19 +61,35 @@ export function makeRegistryKit() {
   const assignments = [assign(secretary, { club }, null, STUDENT_ID)];
   const clubWithAssignments = new Club(CLUB_ID, club.name, club.description, assignments);
   const clubs = new InMemoryClubRepository([clubWithAssignments]);
-  const positions = new InMemoryPositionRepository([secretary]);
+  const cr = new Position(CR_POSITION_ID, 'Class Representative', ScopeType.SECTION, [
+    Permission.CREATE_SECTION_EVENT,
+  ]);
+  const festHead = new Position(CAMPUS_POSITION_ID, 'Fest Head', ScopeType.CAMPUS, [
+    Permission.REQUEST_CAMPUS_EVENT,
+  ]);
+  const positions = new InMemoryPositionRepository([secretary, cr, festHead]);
   const audit = new RecordingAudit();
 
+  const roleAssignments = new InMemoryRoleAssignmentRepository();
   const registry = new RegistryService({ sections, clubs, positions, students, audit });
+  const roles = new RoleService({
+    assignments: roleAssignments,
+    students,
+    positions,
+    clubs,
+    sections,
+    permissions: new PermissionService(),
+    audit,
+  });
   const authService = new AuthService(
     {
       students,
       admins: new FakeAdminRepository([admin]),
       sections,
-      assignments: new InMemoryRoleAssignmentRepository(),
+      assignments: roleAssignments,
       passwords: fastHasher,
     },
     { jwtSecret: SECRET, jwtExpiresInSeconds: 3600 }
   );
-  return { registry, authService, students, clubs, positions, audit };
+  return { registry, roles, authService, students, clubs, positions, audit };
 }

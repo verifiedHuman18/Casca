@@ -66,3 +66,29 @@ export interface StudentDto {
   year: number;
   section: SectionDto;
 }
+/** One role assignment, active or past. */
+export interface RoleAssignmentDto {
+  assignmentId: string;
+  studentId: string;
+  positionId: string;
+  positionName: string;
+  scopeType: ScopeType;
+  clubId: string | null;
+  clubName: string | null;
+  sectionId: string | null;
+  sectionName: string | null;
+  /** User id of the admin who assigned it. */
+  assignedBy: string;
+  /** ISO 8601 UTC. */
+  assignedOn: string;
+  /** ISO 8601 UTC; null means open-ended. */
+  endsOn: string | null;
+  active: boolean;
+}
+
+/** Response of GET /api/me: the caller as the server sees them right now. */
+export interface MeResponse {
+  user: AuthUser;
+  /** Every permission held somewhere, so the UI can show or hide buttons. */
+  permissions: Permission[];
+}

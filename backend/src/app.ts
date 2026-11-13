@@ -15,7 +15,10 @@ import { createRegistryRouter } from './routes/registry';
 import type { AuthService } from './services/AuthService';
 import { PermissionService } from './services/PermissionService';
 import type { RegistryService } from './services/RegistryService';
-
+import { RoleController } from './controllers/RoleController';
+import { createMeRouter } from './routes/me';
+import { createRoleRouter } from './routes/roles';
+import type { RoleService } from './services/RoleService';
 export interface AppDeps {
   authService: AuthService;
   /** Source of the permission answers for every route. Defaults to the real rules. */
@@ -29,6 +32,8 @@ export interface AppDeps {
   corsOrigins?: string[];
   /** Set when running behind a reverse proxy, so rate limits see the real client IP. */
   trustProxy?: boolean;
+  /** Assign, revoke and list role assignments. Without it those routes are not mounted. */
+  roles?: RoleService;
 }
 
 /** Builds the Express app from its dependencies, so tests can pass fakes. */
@@ -66,6 +71,19 @@ export function createApp(deps: AppDeps): Express {
     );
   }
   // Phase 8 mounts role assignment and GET /api/me here.
+
+  // Phases 7 and 8 mount their routers here, passing requireAuth and PermissionService.
+  app.use('/api', createMeRouter(requireAuth, permissions));
+  if (deps.roles) {
+    app.use(
+      '/api',
+      createRoleRouter(
+        new RoleController(deps.roles),
+        requireAuth,
+        requirePermission(user => permissions.canManageRoles(user))
+      )
+    );
+  }
 
   if (deps.pool) {
     // requireAuth runs here, not inside the events router, so a 401 reaches the shared

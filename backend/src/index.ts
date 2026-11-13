@@ -10,13 +10,14 @@ import { PostgresStudentRepository } from './repositories/postgres/PostgresStude
 import { ConsoleAuditLog } from './services/AuditLog';
 import { AuthService } from './services/AuthService';
 import { PasswordHasher } from './services/PasswordHasher';
+import { PermissionService } from './services/PermissionService';
 import { RegistryService } from './services/RegistryService';
+import { RoleService } from './services/RoleService';
 
 /** Composition root: the only place that picks the real implementations. */
 const assignments = new PostgresRoleAssignmentRepository(pool);
 const students = new PostgresStudentRepository(pool, assignments);
 const sections = new PostgresSectionRepository(pool);
-
 const authService = new AuthService(
   {
     students,
@@ -27,16 +28,26 @@ const authService = new AuthService(
   },
   loadAuthConfig()
 );
-const registry = new RegistryService({
-  sections,
+const clubs = new PostgresClubRepository(pool);
+const positions = new PostgresPositionRepository(pool);
+const permissions = new PermissionService();
+const audit = new ConsoleAuditLog();
+
+const registry = new RegistryService({ sections, students, clubs, positions, audit });
+const roles = new RoleService({
+  assignments,
   students,
-  clubs: new PostgresClubRepository(pool),
-  positions: new PostgresPositionRepository(pool),
-  audit: new ConsoleAuditLog(),
+  positions,
+  clubs,
+  sections,
+  permissions,
+  audit,
 });
 const app = createApp({
   authService,
+  permissions,
   registry,
+  roles,
   pool,
   corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean),
   trustProxy: process.env.TRUST_PROXY === 'true',
