@@ -11,13 +11,13 @@ import {
   type ViewStyle,
   type TextStyle,
   type TextInputProps,
-  type NativeSyntheticEvent,
-  type TextInputFocusEventData,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import type { ColorTokens } from '../theme';
 
 export type TextInputHandle = React.ElementRef<typeof TextInput>;
+type FocusEvent = Parameters<NonNullable<TextInputProps['onFocus']>>[0];
+type BlurEvent = Parameters<NonNullable<TextInputProps['onBlur']>>[0];
 
 export interface AnimatedFocusInputProps extends Omit<TextInputProps, 'style'> {
   label: string;
@@ -77,13 +77,13 @@ export const AnimatedFocusInput = React.forwardRef<TextInputHandle, AnimatedFocu
       }).start();
     }, [isFocused, elevateAnim]);
 
-    const handleFocus = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    const handleFocus = (e: FocusEvent) => {
       setIsFocused(true);
       onFocusChange?.(true);
       onFocus?.(e);
     };
 
-    const handleBlur = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    const handleBlur = (e: BlurEvent) => {
       setIsFocused(false);
       onFocusChange?.(false);
       onBlur?.(e);
