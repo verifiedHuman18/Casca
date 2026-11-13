@@ -137,6 +137,56 @@ In the college, an event needs approval from the cultural council first. So club
 | **UC-14** | Request campus event approval                 | Club office bearer  | Must     |
 | **UC-15** | Approve or reject a campus event request      | Admin               | Must     |
 
+### 7.2 Use Case Diagram
+
+```mermaid
+flowchart LR
+    Student(("Student"))
+    CR(("Class Rep (CR)"))
+    Officer(("Club Officer"))
+    Admin(("SAC Admin"))
+
+    subgraph AuthGroup ["Authentication (UC-01, UC-13)"]
+        UC13["UC-13: Self Sign-Up"]
+        UC01["UC-01: Log In / Log Out"]
+    end
+
+    subgraph CalendarGroup ["Calendar Views (UC-02, UC-03, UC-04)"]
+        UC03["UC-03: View Calendar (Day/Month)"]
+        UC04["UC-04: Browse Other Sections"]
+        UC02["UC-02: View Profile & Positions"]
+    end
+
+    subgraph EventGroup ["Publishing & Mutations (UC-05, UC-06, UC-07, UC-08)"]
+        UC07["UC-07: Create Section Event"]
+        UC06["UC-06: Create Club Event"]
+        UC05["UC-05: Create Campus Event"]
+        UC08["UC-08: Edit, Reschedule, Cancel Event"]
+    end
+
+    subgraph ApprovalGroup ["Approval Workflow (UC-14, UC-15)"]
+        UC14["UC-14: Request Campus Approval & Track Status"]
+        UC15["UC-15: Review, Approve, Reject with Reason"]
+    end
+
+    Student --> UC13
+    Student --> UC01
+    Student --> UC03
+    Student --> UC04
+    Student --> UC02
+
+    CR --> UC07
+    CR --> UC08
+
+    Officer --> UC06
+    Officer --> UC14
+    Officer --> UC08
+
+    Admin --> UC05
+    Admin --> UC15
+    Admin --> UC08
+```
+
 ---
 
 ## 8. Class design
@@ -178,6 +228,149 @@ In the college, an event needs approval from the cultural council first. So club
 - **Factory Pattern**: `EventFactory` selects and constructs `Event` subclasses
 - **Single Responsibility Principle**: Authorization logic isolated inside `PermissionService`
 
+### 8.3 UML Class Diagram
+
+```mermaid
+classDiagram
+    class User {
+        <<abstract>>
+        #string userId
+        #string name
+        #string email
+        #string passwordHash
+        +getUserId() string
+        +getName() string
+        +getEmail() string
+        +verifyPassword(plain) boolean
+    }
+
+    class Student {
+        -string enrollmentNo
+        -string course
+        -Section section
+        +getEnrollmentNo() string
+        +getCourse() string
+        +getSection() Section
+        +getYear() number
+    }
+
+    class Admin {
+        -string adminLevel
+        +getAdminLevel() string
+    }
+
+    class Position {
+        -string positionId
+        -string name
+        -ScopeType scopeType
+        -Permission[] permissions
+        +getPositionId() string
+        +getName() string
+        +getScopeType() ScopeType
+        +hasPermission(perm) boolean
+    }
+
+    class RoleAssignment {
+        -string assignmentId
+        -string userId
+        -string positionId
+        -string clubId
+        -string sectionId
+        -Date assignedOn
+        -Date endsOn
+        +isActive() boolean
+        +coversTarget(scope, targetId) boolean
+    }
+
+    class Club {
+        -string clubId
+        -string name
+        -string description
+        +getClubId() string
+        +getName() string
+    }
+
+    class Section {
+        -string sectionId
+        -string course
+        -string label
+        -number year
+        +getName() string
+    }
+
+    class Event {
+        <<abstract>>
+        #string eventId
+        #string title
+        #string description
+        #string venue
+        #Date startTime
+        #Date endTime
+        #string createdBy
+        #EventStatus status
+        #string approvedBy
+        #Date decidedOn
+        #string decisionNote
+        +getStatus() EventStatus
+        +reschedule(start, end) void
+        +cancel() void
+        +isVisibleTo(student)* boolean
+        +canBeCreatedBy(user)* boolean
+    }
+
+    class CampusEvent {
+        +isVisibleTo(student) boolean
+        +canBeCreatedBy(user) boolean
+    }
+
+    class ClubEvent {
+        -string clubId
+        -ClubVisibility visibility
+        +getClubId() string
+        +getVisibility() ClubVisibility
+        +isVisibleTo(student) boolean
+        +canBeCreatedBy(user) boolean
+    }
+
+    class SectionEvent {
+        -string[] targetSections
+        +getTargetSections() string[]
+        +isVisibleTo(student) boolean
+        +canBeCreatedBy(user) boolean
+    }
+
+    User <|-- Student : extends
+    User <|-- Admin : extends
+    Student "1" *-- "0..*" RoleAssignment : holds
+    RoleAssignment --> "1" Position : assigns
+    RoleAssignment --> "0..1" Club : scoped to
+    RoleAssignment --> "0..1" Section : scoped to
+    Student --> "1" Section : enrolled in
+
+    Event <|-- CampusEvent : extends
+    Event <|-- ClubEvent : extends
+    Event <|-- SectionEvent : extends
+```
+
+### 8.4 Event Lifecycle State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_APPROVAL: Campus Proposal Submitted (Club Officer)
+    [*] --> ACTIVE: Direct Publish (Admin CAMPUS / CR SECTION / Officer CLUB)
+
+    PENDING_APPROVAL --> ACTIVE: Council Admin Approves
+    PENDING_APPROVAL --> REJECTED: Council Admin Rejects with Reason
+
+    REJECTED --> PENDING_APPROVAL: Resubmit Revision (Club Officer)
+
+    ACTIVE --> ACTIVE: Edit Metadata (Organizer / Admin)
+    ACTIVE --> ACTIVE: Reschedule (+24h Shift)
+    ACTIVE --> CANCELLED: Cancel Event (Destructive Confirmation)
+
+    CANCELLED --> [*]
+```
+
 ---
 
 ## 9. Suggested data model (PostgreSQL on Aiven)
@@ -208,4 +401,9 @@ In the college, an event needs approval from the cultural council first. So club
 
 - **Member A (Domain & Access Control)**: `User`, `Student`, `Section`, `Club`, `Position`, `RoleAssignment`, `AuthService` (including sign-up), `PermissionService`, `RegistryService`.
 - **Member B (Events & Calendar)**: `Event` hierarchy, `EventFactory`, `EventService`, `CalendarService`, `CalendarFilter`, visibility logic, campus-event approval workflow.
-- **Member C (Interface & Quality)**: React Native screens (calendar, event form, profile, admin pages, approval queue, My requests), test cases, demo data, documentation & diagram maintenance.
+- **Member C (Interface & Quality)**:
+  - **Core Screens & Workflows [Completed]**: Calendar day & month views, event details sheet, dedicated swipeable drawers (`SwipeableDrawer.tsx`), Approval Queue drawer (`ApprovalQueueDrawer.tsx`, UC-15), My Requests & Resubmission drawer (`MyRequestsDrawer.tsx`, UC-14), Event Mutations (edit, reschedule, cancel, UC-08), and Full Auth Screen (`AuthScreen.tsx`, UC-01, UC-13).
+  - **Design System & Theme [Completed]**: Impeccable Warm Sand editorial design system, Light and Dark mode tokens authored from first principles with full contrast compliance.
+  - **Deduplication & Utilities [Completed]**: Unified date arithmetic and matrix generation in `client/src/utils/date.ts`.
+  - **Quality Gates & Automated Tests [Completed]**: Configured Vitest test runner for client; implemented 36 client unit tests across date utilities, theme tokens, and API offline service mappers (total 132 automated tests passing across workspaces).
+  - **UML & Architecture Documentation [Completed]**: Authored system component diagrams, UML class diagrams, state machine, and sequence diagrams in `docs/ARCHITECTURE.md` and `docs/design/DESIGN_DOCUMENT.md`.
