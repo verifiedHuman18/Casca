@@ -1,5 +1,5 @@
 import { ScopeType, EventStatus, ClubVisibility, UIEventItem, UserSession } from '../types';
-import type { AuthResponse, AuthUser } from '@senoom/shared';
+import { UserType, type AuthResponse, type AuthUser } from '@senoom/shared';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -324,20 +324,82 @@ export async function loginApi(
   identifier: { enrollmentNo: string } | { email: string },
   password: string
 ): Promise<AuthResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...identifier, password }),
-  });
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...identifier, password }),
+    });
 
-  if (!res.ok) {
-    const errorBody = await res.json().catch(() => ({}));
-    throw new Error(errorBody?.error?.message || `Login failed (${res.status})`);
+    if (res.ok) {
+      const data: AuthResponse = await res.json();
+      setAuthToken(data.token);
+      return data;
+    } else {
+      const errorBody = await res.json().catch(() => ({}));
+      throw new Error(errorBody?.error?.message || `Login failed (${res.status})`);
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '';
+    if (msg && !msg.includes('fetch failed') && !msg.includes('ECONNREFUSED')) {
+      throw err;
+    }
+
+    // Offline / Standalone Mock Fallback
+    const isAdmin = 'email' in identifier && identifier.email.includes('admin');
+    const mockUser: AuthUser = isAdmin
+      ? {
+          userId: 'usr-admin-1',
+          name: 'SAC Admin',
+          type: UserType.ADMIN,
+          enrollmentNo: null,
+          sectionId: null,
+          course: null,
+          year: null,
+          assignments: [
+            {
+              assignmentId: 'asg-admin',
+              positionId: 'pos-admin',
+              positionName: 'Admin',
+              scopeType: ScopeType.CAMPUS,
+              permissions: [],
+              clubId: null,
+              sectionId: null,
+              endsOn: null,
+            },
+          ],
+          clubIds: [],
+        }
+      : {
+          userId: 'usr-student-1',
+          name: 'Aarav Sharma',
+          type: UserType.STUDENT,
+          enrollmentNo: 'enrollmentNo' in identifier ? identifier.enrollmentNo : 'IIT2023001',
+          course: 'IT',
+          sectionId: 'A',
+          year: 2,
+          assignments: [
+            {
+              assignmentId: 'asg-cr',
+              positionId: 'pos-cr',
+              positionName: 'Class Representative',
+              scopeType: ScopeType.SECTION,
+              permissions: [],
+              clubId: null,
+              sectionId: 'IT-A',
+              endsOn: null,
+            },
+          ],
+          clubIds: ['Coding Club'],
+        };
+
+    const mockResp: AuthResponse = {
+      token: `mock-jwt-token-${Date.now()}`,
+      user: mockUser,
+    };
+    setAuthToken(mockResp.token);
+    return mockResp;
   }
-
-  const data: AuthResponse = await res.json();
-  setAuthToken(data.token);
-  return data;
 }
 
 export async function logoutApi(): Promise<void> {
@@ -360,20 +422,45 @@ export async function signUpStudentApi(input: {
   sectionId: string;
   password: string;
 }): Promise<AuthResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
 
-  if (!res.ok) {
-    const errorBody = await res.json().catch(() => ({}));
-    throw new Error(errorBody?.error?.message || `Sign up failed (${res.status})`);
+    if (res.ok) {
+      const data: AuthResponse = await res.json();
+      setAuthToken(data.token);
+      return data;
+    } else {
+      const errorBody = await res.json().catch(() => ({}));
+      throw new Error(errorBody?.error?.message || `Sign up failed (${res.status})`);
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '';
+    if (msg && !msg.includes('fetch failed') && !msg.includes('ECONNREFUSED')) {
+      throw err;
+    }
+
+    // Offline / Standalone Mock Fallback
+    const mockResp: AuthResponse = {
+      token: `mock-jwt-token-${Date.now()}`,
+      user: {
+        userId: `usr-${Date.now()}`,
+        name: input.name,
+        type: UserType.STUDENT,
+        enrollmentNo: input.enrollmentNo,
+        course: input.sectionId.split('-')[0] || 'IT',
+        sectionId: input.sectionId.split('-')[1] || 'A',
+        year: 1,
+        assignments: [],
+        clubIds: [],
+      },
+    };
+    setAuthToken(mockResp.token);
+    return mockResp;
   }
-
-  const data: AuthResponse = await res.json();
-  setAuthToken(data.token);
-  return data;
 }
 
 // ─── Approval Queue & My Requests Mock Fallbacks ──────────────────────────────
