@@ -57,13 +57,13 @@ export class CalendarFilter {
     }
 
     // Filter events by date range.
-    // Events overlapping the selected range are included.
+    // Only events fully contained in the selected range are included.
 
-    if (this.from && event.endTime < this.from) {
+    if (this.from && event.startTime < this.from) {
       return false;
     }
 
-    if (this.to && event.startTime > this.to) {
+    if (this.to && event.endTime > this.to) {
       return false;
     }
 

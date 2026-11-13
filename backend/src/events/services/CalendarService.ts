@@ -1,14 +1,14 @@
-import { EventRepository } from '../repositories/EventRepository';
-import { EventActor, CalendarFilterInput } from '../domain/event.types';
-import { EventStatus } from '../domain/event.enums';
+import type { EventActor, CalendarFilterInput } from '../domain/event.types';
+import { DomainError } from '../../domain/DomainError';
 import { CalendarFilter } from '../filters/CalendarFilter';
 import { Event } from '../domain/Event';
+import { EventRepository } from '../repositories/EventRepository';
 
 export class CalendarService {
   constructor(private readonly repository: EventRepository) {}
 
   async getCalendar(student: EventActor, filterInput: CalendarFilterInput = {}): Promise<Event[]> {
-    // Sections explicitly selected by the student.
+    // Keep explicitly selected sections separate for domain visibility checks.
     const extraSections = [...new Set(filterInput.sectionIds ?? [])];
 
     // Always include the student's own section.
@@ -19,27 +19,31 @@ export class CalendarService {
       ],
     });
 
-    // Retrieve all events from the repository.
-    const allEvents = await this.repository.findAll();
+    const from = filter.from;
+    const to = filter.to;
 
-    return (
-      allEvents
-        // Only active events appear on student calendars.
-        .filter(event => event.status === EventStatus.ACTIVE)
+    if (!from || !to) {
+      throw new DomainError(
+        'INVALID_DATE_RANGE',
+        'Both from and to dates are required for calendar queries.'
+      );
+    }
 
-        // Apply date, club and section filters.
-        .filter(event => filter.matches(event))
+    // PostgreSQL (or the in-memory test repository) applies the filters.
+    const events = await this.repository.findForCalendar({
+      from,
+      to,
+      clubIds: filter.clubIds,
+      clubMembershipIds: student.clubMembershipIds ?? [],
+      sectionIds: filter.sectionIds,
+    });
 
-        // Apply event-specific visibility rules.
-        .filter(event =>
-          event.isVisibleTo({
-            viewer: student,
-            extraSectionIds: extraSections,
-          })
-        )
-
-        // Sort events chronologically.
-        .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+    // Keep domain visibility as a final safety check.
+    return events.filter(event =>
+      event.isVisibleTo({
+        viewer: student,
+        extraSectionIds: extraSections,
+      })
     );
   }
 }
