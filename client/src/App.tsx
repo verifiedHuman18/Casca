@@ -624,33 +624,34 @@ export default function App() {
                 )}
               </View>
 
-              <View style={styles.heroDateNumberRow}>
+              {/* Big Date Number and Month Name Side-by-Side */}
+              <View style={styles.heroDateInlineRow}>
                 <Text style={styles.heroDateNumber}>{selectedDayGroup.dayNumber}</Text>
-
-                <View style={styles.heroNavArrows}>
-                  <TouchableOpacity
-                    style={styles.heroNavBtn}
-                    onPress={handlePrevDay}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessibilityLabel="Previous day"
-                  >
-                    <Feather name="chevron-left" size={20} color={c.textPrimary} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.heroNavBtn}
-                    onPress={handleNextDay}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessibilityLabel="Next day"
-                  >
-                    <Feather name="chevron-right" size={20} color={c.textPrimary} />
-                  </TouchableOpacity>
-                </View>
+                <Text style={styles.heroMonthText}>{selectedDayGroup.monthShort}</Text>
               </View>
+            </View>
 
-              <Text style={styles.heroMonthText}>{selectedDayGroup.monthShort}</Text>
+            {/* Stepper Arranged as Up and Down */}
+            <View style={styles.heroNavColumn}>
+              <TouchableOpacity
+                style={styles.heroNavBtn}
+                onPress={handleNextDay}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
+                accessibilityLabel="Next day"
+              >
+                <Feather name="chevron-up" size={20} color={c.textPrimary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.heroNavBtn}
+                onPress={handlePrevDay}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
+                accessibilityLabel="Previous day"
+              >
+                <Feather name="chevron-down" size={20} color={c.textPrimary} />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -1602,9 +1603,9 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
     heroDateRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      alignItems: 'flex-end',
       marginTop: 18,
-      marginBottom: 20,
+      marginBottom: 22,
     },
     heroDateLeft: {
       alignItems: 'flex-start',
@@ -1613,7 +1614,7 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      marginBottom: 4,
+      marginBottom: 6,
     },
     heroDayOfWeek: {
       fontSize: 15,
@@ -1647,37 +1648,39 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
       fontWeight: '700',
       color: c.pillActiveText,
     },
-    heroDateNumberRow: {
+    heroDateInlineRow: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-end',
+      gap: 12,
     },
     heroDateNumber: {
-      fontSize: 52,
+      fontSize: 64,
       fontWeight: '900',
       color: c.textPrimary,
-      letterSpacing: -1.5,
-      lineHeight: 56,
+      letterSpacing: -2,
+      lineHeight: 68,
     },
-    heroNavArrows: {
-      flexDirection: 'row',
+    heroMonthText: {
+      fontSize: 42,
+      fontWeight: '800',
+      color: c.textPrimary,
+      letterSpacing: 1.5,
+      lineHeight: 48,
+      paddingBottom: 4,
+    },
+    heroNavColumn: {
+      flexDirection: 'column',
       alignItems: 'center',
-      gap: 6,
-      marginLeft: 14,
+      gap: 8,
+      paddingBottom: 4,
     },
     heroNavBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 42,
+      height: 42,
+      borderRadius: 21,
       backgroundColor: c.surfaceSubtle,
       justifyContent: 'center',
       alignItems: 'center',
-    },
-    heroMonthText: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: c.textPrimary,
-      letterSpacing: 2,
-      marginTop: -4,
     },
 
     // ── Week Day Selector Strip ──

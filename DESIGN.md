@@ -62,8 +62,8 @@ Inspired by high-craft editorial design and modern minimalist calendar architect
 ## Typography
 
 - **Scale & Contrast**:
-  - `Hero Date Number`: 52px, 900 weight, -1.5px tracking (`12`).
-  - `Hero Month`: 28px, 800 weight, 2px tracking (`NOV`).
+  - `Hero Date Number`: 64px, 900 weight, -2px tracking (`12`).
+  - `Hero Month`: 42px, 800 weight, 1.5px tracking (`NOV`).
   - `Day of Week`: 15px, 600 weight (`Thursday`).
   - `Card Title`: 20px, 800 weight, 26px line height.
   - `Times & Metrics`: 15px, 700 weight with secondary label (`Start`, `End`).
