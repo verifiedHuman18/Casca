@@ -1,7 +1,6 @@
 import { Response } from 'express';
 import { EventService } from '../services/EventService';
-import { asyncHandler, requireActor, AuthenticatedRequest } from '../http/event.http';
-
+import { asyncHandler, eventIdOf, requireActor, AuthenticatedRequest } from '../http/event.http';
 export class EventController {
   constructor(private readonly service: EventService) {}
 
@@ -24,24 +23,24 @@ export class EventController {
   });
 
   approve = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    res.json({ event: await this.service.approveEvent(requireActor(req), req.params.eventId) });
+    res.json({ event: await this.service.approveEvent(requireActor(req), eventIdOf(req)) });
   });
 
   reject = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     res.json({
-      event: await this.service.rejectEvent(requireActor(req), req.params.eventId, req.body.reason),
+      event: await this.service.rejectEvent(requireActor(req), eventIdOf(req), req.body.reason),
     });
   });
 
   update = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    res.json(await this.service.updateEvent(requireActor(req), req.params.eventId, req.body));
+    res.json(await this.service.updateEvent(requireActor(req), eventIdOf(req), req.body));
   });
 
   reschedule = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     res.json(
       await this.service.rescheduleEvent(
         requireActor(req),
-        req.params.eventId,
+        eventIdOf(req),
         req.body.startTime,
         req.body.endTime
       )
@@ -49,12 +48,12 @@ export class EventController {
   });
 
   cancel = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    res.json({ event: await this.service.cancelEvent(requireActor(req), req.params.eventId) });
+    res.json({ event: await this.service.cancelEvent(requireActor(req), eventIdOf(req)) });
   });
 
   resubmit = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     res.json(
-      await this.service.resubmitRejectedRequest(requireActor(req), req.params.eventId, req.body)
+      await this.service.resubmitRejectedRequest(requireActor(req), eventIdOf(req), req.body)
     );
   });
 }

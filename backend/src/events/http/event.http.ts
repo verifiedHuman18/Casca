@@ -23,6 +23,12 @@ export function requireActor(req: AuthenticatedRequest): EventActor {
   };
 }
 
+/** Express 5 types route params as string | string[]; :eventId is always a single UUID. */
+export function eventIdOf(req: Request): string {
+  const id = req.params.eventId;
+  return Array.isArray(id) ? id[0] : id;
+}
+
 export function asyncHandler(
   fn: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<unknown>
 ) {
