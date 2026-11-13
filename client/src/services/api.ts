@@ -179,6 +179,8 @@ interface RawBackendEvent {
   clubVisibility?: ClubVisibility | null;
   targetSectionIds?: string[];
   targetSections?: string[];
+  createdBy?: string;
+  rejectionReason?: string;
 }
 
 function mapBackendEventToUI(raw: RawBackendEvent): UIEventItem {
@@ -193,6 +195,8 @@ function mapBackendEventToUI(raw: RawBackendEvent): UIEventItem {
     clubName: raw.clubName || (raw.clubId ? `Club ${raw.clubId.slice(0, 6)}` : undefined),
     targetSections: raw.targetSectionIds ?? raw.targetSections ?? [],
     status: raw.status,
+    createdBy: raw.createdBy,
+    rejectionReason: raw.rejectionReason,
   };
 }
 
@@ -348,4 +352,286 @@ export async function logoutApi(): Promise<void> {
     }
   }
   setAuthToken(null);
+}
+
+export async function signUpStudentApi(input: {
+  name: string;
+  enrollmentNo: string;
+  sectionId: string;
+  password: string;
+}): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody?.error?.message || `Sign up failed (${res.status})`);
+  }
+
+  const data: AuthResponse = await res.json();
+  setAuthToken(data.token);
+  return data;
+}
+
+// ─── Approval Queue & My Requests Mock Fallbacks ──────────────────────────────
+export const INITIAL_MOCK_APPROVAL_QUEUE: UIEventItem[] = [
+  {
+    id: 'evt-111',
+    title: 'Campus Placement Orientation & Mock Technical Interviews',
+    description:
+      'Alumni mentorship session for internship preparedness and resume critiques submitted by the Coding Club.',
+    venue: 'Main Auditorium',
+    startTime: '2026-11-20T08:30:00.000Z',
+    endTime: '2026-11-20T11:30:00.000Z',
+    scope: ScopeType.CAMPUS,
+    clubName: 'Coding Club',
+    status: EventStatus.PENDING_APPROVAL,
+  },
+  {
+    id: 'evt-112',
+    title: 'Inter-College RoboWars Championship 2026',
+    description:
+      'Flagship robotic combat tournament open to all colleges, organized by Robotics Society.',
+    venue: 'Campus Open Air Theatre',
+    startTime: '2026-11-28T04:30:00.000Z',
+    endTime: '2026-11-28T12:30:00.000Z',
+    scope: ScopeType.CAMPUS,
+    clubName: 'Robotics Club',
+    status: EventStatus.PENDING_APPROVAL,
+  },
+];
+
+export const INITIAL_MOCK_MY_REQUESTS: UIEventItem[] = [
+  {
+    id: 'evt-111',
+    title: 'Campus Placement Orientation & Mock Technical Interviews',
+    description:
+      'Alumni mentorship session for internship preparedness and resume critiques submitted by the Coding Club.',
+    venue: 'Main Auditorium',
+    startTime: '2026-11-20T08:30:00.000Z',
+    endTime: '2026-11-20T11:30:00.000Z',
+    scope: ScopeType.CAMPUS,
+    clubName: 'Coding Club',
+    status: EventStatus.PENDING_APPROVAL,
+  },
+  {
+    id: 'evt-113',
+    title: 'Late Night Acoustic Music Jam',
+    description: 'Acoustic jam session at the Student Activity Center.',
+    venue: 'Student Activity Center Lawn',
+    startTime: '2026-11-10T14:30:00.000Z',
+    endTime: '2026-11-10T17:30:00.000Z',
+    scope: ScopeType.CAMPUS,
+    clubName: 'Music Club',
+    status: EventStatus.REJECTED,
+  },
+];
+
+// ─── Approval Queue API ──────────────────────────────────────────────────────
+export async function fetchApprovalQueue(): Promise<UIEventItem[]> {
+  try {
+    if (authToken) {
+      const res = await fetch(`${API_BASE_URL}/api/events/approval-queue`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const rawEvents: RawBackendEvent[] = Array.isArray(data.events)
+          ? data.events
+          : Array.isArray(data)
+            ? data
+            : [];
+        return rawEvents.map(mapBackendEventToUI);
+      }
+    }
+  } catch {
+    // Fall back to mock queue
+  }
+  return INITIAL_MOCK_APPROVAL_QUEUE;
+}
+
+export async function approveEventApi(eventId: string): Promise<void> {
+  if (authToken) {
+    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/approve`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `Failed to approve event (${res.status})`);
+    }
+  }
+}
+
+export async function rejectEventApi(eventId: string, reason: string): Promise<void> {
+  if (authToken) {
+    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/reject`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ reason }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `Failed to reject event (${res.status})`);
+    }
+  }
+}
+
+// ─── My Requests API ─────────────────────────────────────────────────────────
+export async function fetchMyRequests(): Promise<UIEventItem[]> {
+  try {
+    if (authToken) {
+      const res = await fetch(`${API_BASE_URL}/api/events/my-requests`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const rawEvents: RawBackendEvent[] = Array.isArray(data.events)
+          ? data.events
+          : Array.isArray(data)
+            ? data
+            : [];
+        return rawEvents.map(mapBackendEventToUI);
+      }
+    }
+  } catch {
+    // Fall back to mock requests
+  }
+  return INITIAL_MOCK_MY_REQUESTS;
+}
+
+export async function resubmitEventApi(
+  eventId: string,
+  payload: Partial<CreateEventPayload>
+): Promise<UIEventItem> {
+  if (authToken) {
+    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/resubmit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      const updated = body.event ?? body;
+      return mapBackendEventToUI(updated);
+    }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Failed to resubmit (${res.status})`);
+  }
+  return {
+    id: eventId,
+    title: payload.title || 'Resubmitted Event',
+    description: payload.description || '',
+    venue: payload.venue || 'TBD',
+    startTime: payload.startTime || new Date().toISOString(),
+    endTime: payload.endTime || new Date().toISOString(),
+    scope: ScopeType.CAMPUS,
+    status: EventStatus.PENDING_APPROVAL,
+  };
+}
+
+// ─── Event Mutation Actions (Edit, Reschedule, Cancel) ───────────────────────
+export async function updateEventApi(
+  eventId: string,
+  updates: Partial<CreateEventPayload>
+): Promise<UIEventItem> {
+  if (authToken) {
+    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(updates),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      const updated = body.event ?? body;
+      return mapBackendEventToUI(updated);
+    }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Update failed (${res.status})`);
+  }
+  return {
+    id: eventId,
+    title: updates.title || 'Updated Event',
+    description: updates.description || '',
+    venue: updates.venue || '',
+    startTime: updates.startTime || new Date().toISOString(),
+    endTime: updates.endTime || new Date().toISOString(),
+    scope: updates.scope || ScopeType.SECTION,
+    status: EventStatus.ACTIVE,
+  };
+}
+
+export async function rescheduleEventApi(
+  eventId: string,
+  startTime: string,
+  endTime: string
+): Promise<UIEventItem> {
+  if (authToken) {
+    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/reschedule`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ startTime, endTime }),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      const updated = body.event ?? body;
+      return mapBackendEventToUI(updated);
+    }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Reschedule failed (${res.status})`);
+  }
+  return {
+    id: eventId,
+    title: 'Rescheduled Event',
+    description: '',
+    venue: '',
+    startTime,
+    endTime,
+    scope: ScopeType.SECTION,
+    status: EventStatus.ACTIVE,
+  };
+}
+
+export async function cancelEventApi(eventId: string): Promise<void> {
+  if (authToken) {
+    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/cancel`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `Cancel failed (${res.status})`);
+    }
+  }
 }

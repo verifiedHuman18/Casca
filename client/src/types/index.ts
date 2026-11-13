@@ -30,6 +30,8 @@ export interface UIEventItem {
   targetSections?: string[];
   status: EventStatus;
   isReadOnly?: boolean;
+  createdBy?: string;
+  rejectionReason?: string;
 }
 
 export interface UserSession {

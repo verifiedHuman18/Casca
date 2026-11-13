@@ -12,18 +12,28 @@ import {
   StatusBar as RNStatusBar,
   KeyboardAvoidingView,
   BackHandler,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Feather from '@expo/vector-icons/Feather';
-import { ScopeType, UIEventItem, UserSession } from './types';
+import { ScopeType, EventStatus, UIEventItem, UserSession } from './types';
 import {
   INITIAL_MOCK_USER,
   INITIAL_MOCK_EVENTS,
   fetchCalendarEvents,
   createNewEvent,
+  updateEventApi,
+  rescheduleEventApi,
+  cancelEventApi,
+  resubmitEventApi,
+  logoutApi,
+  setAuthToken,
 } from './services/api';
 import { getTheme, ThemeMode } from './theme';
 import { SwipeableDrawer } from './components/SwipeableDrawer';
+import { ApprovalQueueDrawer } from './components/ApprovalQueueDrawer';
+import { MyRequestsDrawer } from './components/MyRequestsDrawer';
+import { AuthScreen } from './components/AuthScreen';
 import {
   MONTH_NAMES,
   MONTH_SHORT,
@@ -64,6 +74,11 @@ const AVAILABLE_ROLES = [
     label: 'Club Coordinator',
     description: 'Publish Coding Club & campus hackathon events',
   },
+  {
+    id: 'Admin',
+    label: 'SAC Admin',
+    description: 'Review campus proposals & manage approval queue',
+  },
 ];
 
 // ─── Main Application ────────────────────────────────────────────────────────
@@ -87,6 +102,10 @@ export default function App() {
   // Drawer states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
+  const [isMyRequestsOpen, setIsMyRequestsOpen] = useState(false);
+  const [isAuthScreenOpen, setIsAuthScreenOpen] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
   // Form State for Event Creation
   const [formTitle, setFormTitle] = useState('');
@@ -108,8 +127,21 @@ export default function App() {
         setIsSettingsOpen(false);
         return true;
       }
+      if (isApprovalQueueOpen) {
+        setIsApprovalQueueOpen(false);
+        return true;
+      }
+      if (isMyRequestsOpen) {
+        setIsMyRequestsOpen(false);
+        return true;
+      }
+      if (isAuthScreenOpen) {
+        setIsAuthScreenOpen(false);
+        return true;
+      }
       if (isCreateOpen) {
         setIsCreateOpen(false);
+        setEditingEventId(null);
         return true;
       }
       if (viewMode === 'event') {
@@ -120,7 +152,15 @@ export default function App() {
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [isSettingsOpen, isCreateOpen, viewMode, previousViewMode]);
+  }, [
+    isSettingsOpen,
+    isApprovalQueueOpen,
+    isMyRequestsOpen,
+    isAuthScreenOpen,
+    isCreateOpen,
+    viewMode,
+    previousViewMode,
+  ]);
 
   const parseDateKey = (key: string) => {
     const [y, m, d] = key.split('-').map(Number);
@@ -212,11 +252,28 @@ export default function App() {
 
   const currentRole = user.positions[0] || 'Student';
 
-  const handleSelectRole = (roleId: string) =>
+  const isAdmin = user.positions.includes('Admin');
+  const isClubOfficer = user.positions.some(
+    p => p.includes('Coordinator') || p.includes('President')
+  );
+  const isClassRep = user.positions.includes('Class Representative');
+
+  const canManageEvent =
+    Boolean(selectedEvent) &&
+    (user.userId === selectedEvent?.createdBy ||
+      isAdmin ||
+      (selectedEvent?.scope === ScopeType.CLUB && isClubOfficer) ||
+      (selectedEvent?.scope === ScopeType.SECTION && isClassRep));
+
+  const handleSelectRole = (roleId: string) => {
+    // When switching to Admin, set positions: ['Admin']
+    // When switching to Club Coordinator, ensure club positions
+    // When switching to Class Rep, set positions: ['Class Representative']
     setUser(prev => ({
       ...prev,
       positions: [roleId],
     }));
+  };
 
   const handleOpenEventScreen = (evt: UIEventItem, fromView: 'day' | 'month') => {
     setSelectedEvent(evt);
@@ -228,6 +285,46 @@ export default function App() {
   const handleCreate = async () => {
     if (!formTitle.trim() || !formVenue.trim()) {
       Alert.alert('Required Fields', 'Please enter event title and venue.');
+      return;
+    }
+
+    if (editingEventId) {
+      const existing = events.find(e => e.id === editingEventId);
+      if (existing?.status === EventStatus.REJECTED) {
+        try {
+          const updated = await resubmitEventApi(editingEventId, {
+            title: formTitle.trim(),
+            description: formDesc.trim(),
+            venue: formVenue.trim(),
+            startTime: existing.startTime,
+            endTime: existing.endTime,
+          });
+          setEvents(prev => prev.map(e => (e.id === editingEventId ? updated : e)));
+          Alert.alert('Resubmitted', 'Event request resubmitted for council review.');
+        } catch (err: unknown) {
+          Alert.alert('Error', err instanceof Error ? err.message : 'Resubmission failed.');
+        }
+      } else {
+        try {
+          const updated = await updateEventApi(editingEventId, {
+            title: formTitle.trim(),
+            description: formDesc.trim(),
+            venue: formVenue.trim(),
+          });
+          setEvents(prev => prev.map(e => (e.id === editingEventId ? updated : e)));
+          if (selectedEvent?.id === editingEventId) {
+            setSelectedEvent(updated);
+          }
+          Alert.alert('Updated', 'Event details updated successfully.');
+        } catch (err: unknown) {
+          Alert.alert('Error', err instanceof Error ? err.message : 'Update failed.');
+        }
+      }
+      setEditingEventId(null);
+      setFormTitle('');
+      setFormVenue('');
+      setFormDesc('');
+      setIsCreateOpen(false);
       return;
     }
 
@@ -269,6 +366,94 @@ export default function App() {
     setFormVenue('');
     setFormDesc('');
     setIsCreateOpen(false);
+  };
+
+  const handleOpenEdit = (evt: UIEventItem) => {
+    setEditingEventId(evt.id);
+    setFormTitle(evt.title);
+    setFormVenue(evt.venue);
+    setFormDesc(evt.description);
+    setFormScope(evt.scope);
+    setIsCreateOpen(true);
+  };
+
+  const handleReschedule = async () => {
+    if (!selectedEvent) return;
+    Alert.alert('Reschedule Session', 'Shift this session to tomorrow (same time)?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Shift +24h',
+        onPress: async () => {
+          const start = new Date(selectedEvent.startTime);
+          const end = new Date(selectedEvent.endTime);
+          start.setDate(start.getDate() + 1);
+          end.setDate(end.getDate() + 1);
+
+          try {
+            const updated = await rescheduleEventApi(
+              selectedEvent.id,
+              start.toISOString(),
+              end.toISOString()
+            );
+            setSelectedEvent(updated);
+            setEvents(prev => prev.map(e => (e.id === selectedEvent.id ? updated : e)));
+            Alert.alert('Rescheduled', 'Session schedule updated.');
+          } catch (err: unknown) {
+            Alert.alert(
+              'Reschedule Failed',
+              err instanceof Error ? err.message : 'Error rescheduling'
+            );
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleCancelEvent = async () => {
+    if (!selectedEvent) return;
+    Alert.alert('Cancel Event', `Are you sure you want to cancel "${selectedEvent.title}"?`, [
+      { text: 'No, Keep', style: 'cancel' },
+      {
+        text: 'Yes, Cancel Event',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await cancelEventApi(selectedEvent.id);
+            const updated = { ...selectedEvent, status: EventStatus.CANCELLED };
+            setSelectedEvent(updated);
+            setEvents(prev => prev.map(e => (e.id === selectedEvent.id ? updated : e)));
+            Alert.alert('Cancelled', 'This event has been marked as cancelled.');
+          } catch (err: unknown) {
+            Alert.alert('Cancel Failed', err instanceof Error ? err.message : 'Error cancelling');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleEventApproved = (item: UIEventItem) => {
+    setEvents(prev => {
+      const exists = prev.some(e => e.id === item.id);
+      if (exists) {
+        return prev.map(e => (e.id === item.id ? { ...e, status: EventStatus.ACTIVE } : e));
+      }
+      return [{ ...item, status: EventStatus.ACTIVE }, ...prev];
+    });
+  };
+
+  const handleLoginSuccess = (session: UserSession, token: string) => {
+    setAuthToken(token);
+    setUser(session);
+    setIsAuthScreenOpen(false);
+    fetchCalendarEvents().then(setEvents);
+    Alert.alert('Welcome', `Signed in as ${session.name} (${session.course}-${session.section})`);
+  };
+
+  const handleLogout = async () => {
+    await logoutApi();
+    setUser(INITIAL_MOCK_USER);
+    setIsSettingsOpen(false);
+    Alert.alert('Signed Out', 'You have been signed out.');
   };
 
   const calendarDays = useMemo(() => {
@@ -318,15 +503,42 @@ export default function App() {
             </TouchableOpacity>
           </View>
 
-          {/* Dedicated Settings Button */}
-          <TouchableOpacity
-            style={styles.settingsBtn}
-            onPress={() => setIsSettingsOpen(true)}
-            activeOpacity={0.8}
-            accessibilityLabel="Profile and settings drawer"
-          >
-            <Feather name="sliders" size={18} color={c.textPrimary} />
-          </TouchableOpacity>
+          {/* Quick Actions & Settings */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {isAdmin && (
+              <TouchableOpacity
+                style={styles.quickNavBtn}
+                onPress={() => setIsApprovalQueueOpen(true)}
+                activeOpacity={0.8}
+                accessibilityLabel="Open approval queue"
+              >
+                <Feather name="check-square" size={15} color={c.pillActiveBg} />
+                <Text style={styles.quickNavBtnText}>Queue</Text>
+              </TouchableOpacity>
+            )}
+
+            {isClubOfficer && (
+              <TouchableOpacity
+                style={styles.quickNavBtn}
+                onPress={() => setIsMyRequestsOpen(true)}
+                activeOpacity={0.8}
+                accessibilityLabel="Open my requests"
+              >
+                <Feather name="file-text" size={15} color={c.pillActiveBg} />
+                <Text style={styles.quickNavBtnText}>Proposals</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Dedicated Settings Button */}
+            <TouchableOpacity
+              style={styles.settingsBtn}
+              onPress={() => setIsSettingsOpen(true)}
+              activeOpacity={0.8}
+              accessibilityLabel="Profile and settings drawer"
+            >
+              <Feather name="sliders" size={18} color={c.textPrimary} />
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         /* Event Screen Navigation Header */
@@ -601,6 +813,25 @@ export default function App() {
       {/* ── 3. DEDICATED EVENT SCREEN ──────────────────────────────────── */}
       {viewMode === 'event' && selectedEvent && (
         <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+          {/* Status Badges */}
+          {selectedEvent.status === EventStatus.CANCELLED && (
+            <View style={styles.cancelledBanner}>
+              <Feather name="slash" size={16} color="#DC2626" style={{ marginRight: 8 }} />
+              <Text style={styles.cancelledBannerText}>
+                This event has been cancelled by the organizer.
+              </Text>
+            </View>
+          )}
+
+          {selectedEvent.status === EventStatus.PENDING_APPROVAL && (
+            <View style={styles.pendingBanner}>
+              <Feather name="clock" size={16} color={c.tintWarmText} style={{ marginRight: 8 }} />
+              <Text style={styles.pendingBannerText}>
+                Pending Review · Awaiting SAC Council Approval
+              </Text>
+            </View>
+          )}
+
           {/* Event Hero Card */}
           <View style={[styles.eventScreenHero, { backgroundColor: c.tintLavender }]}>
             <Text style={styles.eventScreenTitle}>{selectedEvent.title}</Text>
@@ -738,6 +969,39 @@ export default function App() {
               {isReminderSet ? 'Reminder Active (15m prior)' : 'Add to Personal Reminders'}
             </Text>
           </TouchableOpacity>
+
+          {/* Management Actions for Event Organizers / Admins */}
+          {canManageEvent && selectedEvent.status !== EventStatus.CANCELLED && (
+            <View style={styles.mgmtActionsContainer}>
+              <Text style={styles.mgmtSectionTitle}>ORGANIZER ACTIONS</Text>
+              <TouchableOpacity
+                style={styles.mgmtBtn}
+                onPress={() => handleOpenEdit(selectedEvent)}
+                activeOpacity={0.85}
+              >
+                <Feather name="edit-3" size={16} color={c.textPrimary} />
+                <Text style={styles.mgmtBtnText}>Edit Event Details</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.mgmtBtn}
+                onPress={handleReschedule}
+                activeOpacity={0.85}
+              >
+                <Feather name="calendar" size={16} color={c.textPrimary} />
+                <Text style={styles.mgmtBtnText}>Reschedule (+24h Shift)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.mgmtBtn, styles.mgmtCancelBtn]}
+                onPress={handleCancelEvent}
+                activeOpacity={0.85}
+              >
+                <Feather name="slash" size={16} color="#DC2626" />
+                <Text style={[styles.mgmtBtnText, styles.mgmtCancelBtnText]}>Cancel Event</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       )}
 
@@ -856,6 +1120,95 @@ export default function App() {
           </View>
         </View>
 
+        {/* Workflow & Quick Navigation */}
+        <View style={styles.sheetSection}>
+          <Text style={styles.sheetSectionTitle}>WORKFLOW & ACTIONS</Text>
+          <View style={{ gap: 10 }}>
+            {isAdmin && (
+              <TouchableOpacity
+                style={styles.settingsActionBtn}
+                onPress={() => {
+                  setIsSettingsOpen(false);
+                  setIsApprovalQueueOpen(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Feather
+                  name="check-square"
+                  size={18}
+                  color={c.pillActiveBg}
+                  style={{ marginRight: 12 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingsActionTitle}>SAC Approval Queue</Text>
+                  <Text style={styles.settingsActionSub}>Review club & campus event proposals</Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={c.textMuted} />
+              </TouchableOpacity>
+            )}
+
+            {isClubOfficer && (
+              <TouchableOpacity
+                style={styles.settingsActionBtn}
+                onPress={() => {
+                  setIsSettingsOpen(false);
+                  setIsMyRequestsOpen(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Feather
+                  name="file-text"
+                  size={18}
+                  color={c.pillActiveBg}
+                  style={{ marginRight: 12 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingsActionTitle}>My Proposals & Status</Text>
+                  <Text style={styles.settingsActionSub}>
+                    Track review status and resubmit revisions
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={c.textMuted} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.settingsActionBtn}
+              onPress={() => {
+                setIsSettingsOpen(false);
+                setIsAuthScreenOpen(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Feather
+                name="user-check"
+                size={18}
+                color={c.textPrimary}
+                style={{ marginRight: 12 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingsActionTitle}>Switch Account / Sign In</Text>
+                <Text style={styles.settingsActionSub}>Log in with enrollment credentials</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={c.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.settingsActionBtn, { borderColor: '#FCA5A5' }]}
+              onPress={handleLogout}
+              activeOpacity={0.8}
+            >
+              <Feather name="log-out" size={18} color="#DC2626" style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.settingsActionTitle, { color: '#DC2626' }]}>Sign Out</Text>
+                <Text style={styles.settingsActionSub}>
+                  Reset session to default student preview
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Campus Sync Info */}
         <View style={styles.sheetSection}>
           <Text style={styles.sheetSectionTitle}>CAMPUS SYNC & OFFLINE</Text>
@@ -895,8 +1248,20 @@ export default function App() {
       {/* ── SWIPEABLE ADD EVENT DRAWER ─────────────────────────────────── */}
       <SwipeableDrawer
         visible={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        title="New Event"
+        onClose={() => {
+          setIsCreateOpen(false);
+          setEditingEventId(null);
+          setFormTitle('');
+          setFormVenue('');
+          setFormDesc('');
+        }}
+        title={
+          editingEventId
+            ? events.find(e => e.id === editingEventId)?.status === EventStatus.REJECTED
+              ? 'Revise & Resubmit'
+              : 'Edit Event'
+            : 'New Event'
+        }
         colors={c}
       >
         <KeyboardAvoidingView
@@ -904,7 +1269,9 @@ export default function App() {
           style={{ width: '100%' }}
         >
           <Text style={styles.createSubtitle}>
-            Publish an event directly to the campus calendar without noise.
+            {editingEventId
+              ? 'Update event details or address feedback before resubmitting.'
+              : 'Publish an event directly to the campus calendar without noise.'}
           </Text>
 
           {/* Student Notice */}
@@ -1004,10 +1371,49 @@ export default function App() {
           />
 
           <TouchableOpacity style={styles.publishBtn} activeOpacity={0.85} onPress={handleCreate}>
-            <Text style={styles.publishBtnText}>Publish Event</Text>
+            <Text style={styles.publishBtnText}>
+              {editingEventId
+                ? events.find(e => e.id === editingEventId)?.status === EventStatus.REJECTED
+                  ? 'Resubmit for Review'
+                  : 'Save Changes'
+                : 'Publish Event'}
+            </Text>
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </SwipeableDrawer>
+
+      {/* ── APPROVAL QUEUE DRAWER (UC-15) ────────────────────────────── */}
+      <ApprovalQueueDrawer
+        visible={isApprovalQueueOpen}
+        onClose={() => setIsApprovalQueueOpen(false)}
+        colors={c}
+        onEventApproved={handleEventApproved}
+        onEventRejected={(id, _reason) => {
+          setEvents(prev => prev.filter(e => e.id !== id));
+        }}
+      />
+
+      {/* ── MY REQUESTS & RESUBMISSION DRAWER (UC-14) ────────────────── */}
+      <MyRequestsDrawer
+        visible={isMyRequestsOpen}
+        onClose={() => setIsMyRequestsOpen(false)}
+        colors={c}
+        onOpenResubmit={handleOpenEdit}
+      />
+
+      {/* ── AUTH SCREEN MODAL (UC-01, UC-13) ─────────────────────────── */}
+      <Modal
+        visible={isAuthScreenOpen}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setIsAuthScreenOpen(false)}
+      >
+        <AuthScreen
+          colors={c}
+          onLoginSuccess={handleLoginSuccess}
+          onGuestPreview={() => setIsAuthScreenOpen(false)}
+        />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1673,6 +2079,104 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
       color: c.pillActiveText,
       fontSize: 15,
       fontWeight: '700',
+    },
+
+    // ── Quick Nav Pills ──
+    quickNavBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.surfaceSubtle,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 9999,
+      gap: 6,
+    },
+    quickNavBtnText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.textPrimary,
+    },
+
+    // ── Event Screen Status Banners & Actions ──
+    cancelledBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#FEE2E2',
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 16,
+    },
+    cancelledBannerText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: '#991B1B',
+      flex: 1,
+    },
+    pendingBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.tintWarm,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 16,
+    },
+    pendingBannerText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.tintWarmText,
+      flex: 1,
+    },
+    mgmtActionsContainer: {
+      marginTop: 22,
+      gap: 10,
+    },
+    mgmtSectionTitle: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1,
+      color: c.textMuted,
+      marginBottom: 4,
+    },
+    mgmtBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.surfaceSubtle,
+      borderRadius: 9999,
+      paddingVertical: 14,
+      gap: 8,
+    },
+    mgmtBtnText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.textPrimary,
+    },
+    mgmtCancelBtn: {
+      backgroundColor: '#FEE2E2',
+    },
+    mgmtCancelBtnText: {
+      color: '#991B1B',
+    },
+
+    // ── Settings Workflow Action Items ──
+    settingsActionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.surfaceSubtle,
+      borderRadius: 16,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    settingsActionTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: c.textPrimary,
+    },
+    settingsActionSub: {
+      fontSize: 12,
+      color: c.textSecondary,
+      marginTop: 2,
     },
   });
 }
