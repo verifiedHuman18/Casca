@@ -303,7 +303,6 @@ describe('Member B event and calendar services', () => {
       })
     ).rejects.toMatchObject({
       code: 'FORBIDDEN',
-      statusCode: 403,
     });
   });
 });

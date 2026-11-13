@@ -6,7 +6,6 @@ import { EventPermissionGateway } from '../permissions/EventPermissionGateway';
 import { PgEventRepository } from '../repositories/PgEventRepository';
 import { EventService } from '../services/EventService';
 import { CalendarService } from '../services/CalendarService';
-import { eventErrorHandler } from '../http/event.http';
 import { RequestHandler } from 'express';
 
 export function createEventRouter(
@@ -50,6 +49,5 @@ export function createEventRouter(
   router.post('/events/:eventId/cancel', events.cancel);
   router.get('/calendar', calendar.getCalendar);
 
-  router.use(eventErrorHandler);
   return router;
 }

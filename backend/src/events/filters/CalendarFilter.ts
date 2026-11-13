@@ -4,7 +4,8 @@ import { SectionEvent } from '../domain/SectionEvent';
 
 import { EventScope, EventStatus } from '../domain/event.enums';
 
-import { CalendarFilterInput, DomainError } from '../domain/event.types';
+import { DomainError } from '../../domain/DomainError';
+import type { CalendarFilterInput } from '../domain/event.types';
 
 function validDate(value: string | Date | undefined, name: string): Date | undefined {
   if (value === undefined) {
@@ -14,7 +15,7 @@ function validDate(value: string | Date | undefined, name: string): Date | undef
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    throw new DomainError(`${name} must be a valid date.`, 'INVALID_DATE', 400);
+    throw new DomainError('INVALID_DATE', `${name} must be a valid date.`);
   }
 
   return date;
@@ -37,9 +38,8 @@ export class CalendarFilter {
     // Validate the requested date range.
     if (this.from && this.to && this.to < this.from) {
       throw new DomainError(
-        'Calendar end date must be on or after start date.',
         'INVALID_DATE_RANGE',
-        400
+        'Calendar end date must be on or after start date.'
       );
     }
 

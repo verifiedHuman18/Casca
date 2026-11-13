@@ -4,11 +4,15 @@ import { ZodError } from 'zod';
 import { DomainError } from '../domain/DomainError';
 
 const STATUS_BY_CODE: Record<string, number> = {
+  AUTH_CONTEXT_MISSING: 500,
   UNAUTHENTICATED: 401,
   INVALID_CREDENTIALS: 401,
   WRONG_PASSWORD: 401,
   FORBIDDEN: 403,
+  SELF_APPROVAL: 403,
   NOT_FOUND: 404,
+  INVALID_EVENT_STATE: 409,
+  VALIDATION_ERROR: 400,
   SECTION_NOT_FOUND: 404,
   ENROLLMENT_EXISTS: 409,
   EMAIL_EXISTS: 409,

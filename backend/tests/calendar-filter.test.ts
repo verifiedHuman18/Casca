@@ -31,7 +31,6 @@ describe('CalendarFilter', () => {
     expect(() => new CalendarFilter({ from: 'invalid-date' })).toThrow(
       expect.objectContaining({
         code: 'INVALID_DATE',
-        statusCode: 400,
       })
     );
   });
@@ -40,7 +39,6 @@ describe('CalendarFilter', () => {
     expect(() => new CalendarFilter({ to: 'invalid-date' })).toThrow(
       expect.objectContaining({
         code: 'INVALID_DATE',
-        statusCode: 400,
       })
     );
   });
@@ -55,7 +53,6 @@ describe('CalendarFilter', () => {
     ).toThrow(
       expect.objectContaining({
         code: 'INVALID_DATE_RANGE',
-        statusCode: 400,
       })
     );
   });

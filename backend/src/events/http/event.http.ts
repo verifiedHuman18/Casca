@@ -1,7 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import { UserType } from '@senoom/shared';
 import type { AuthUser } from '@senoom/shared';
-import { EventActor, DomainError } from '../domain/event.types';
+import { DomainError } from '../../domain/DomainError';
+import type { EventActor } from '../domain/event.types';
 
 export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
@@ -11,7 +12,7 @@ export function requireActor(req: AuthenticatedRequest): EventActor {
   const user = req.user;
 
   if (!user?.userId) {
-    throw new DomainError('Authentication required.', 'UNAUTHENTICATED', 401);
+    throw new DomainError('UNAUTHENTICATED', 'Authentication required.');
   }
 
   return {
@@ -34,26 +35,4 @@ export function asyncHandler(
 ) {
   return (req: Request, res: Response, next: NextFunction) =>
     Promise.resolve(fn(req as AuthenticatedRequest, res, next)).catch(next);
-}
-
-export function eventErrorHandler(
-  error: unknown,
-  _req: Request,
-  res: Response,
-  _next: NextFunction
-): void {
-  if (error instanceof DomainError) {
-    res.status(error.statusCode).json({
-      error: { code: error.code, message: error.message },
-    });
-    return;
-  }
-
-  // Do not leak SQL errors or stack traces to clients.
-  res.status(500).json({
-    error: {
-      code: 'INTERNAL_ERROR',
-      message: 'An unexpected error occurred.',
-    },
-  });
 }

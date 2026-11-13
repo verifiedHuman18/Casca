@@ -3,7 +3,8 @@ import { PermissionService } from '../../services/PermissionService';
 import { ClubEvent } from '../domain/ClubEvent';
 import { Event } from '../domain/Event';
 import { SectionEvent } from '../domain/SectionEvent';
-import { DomainError, EventActor } from '../domain/event.types';
+import { DomainError } from '../../domain/DomainError';
+import type { EventActor } from '../domain/event.types';
 import { EventPermissionGateway } from './EventPermissionGateway';
 
 export class PermissionServiceEventGateway implements EventPermissionGateway {
@@ -11,11 +12,7 @@ export class PermissionServiceEventGateway implements EventPermissionGateway {
 
   private requireAuthUser(actor: EventActor): AuthUser {
     if (!actor.authUser) {
-      throw new DomainError(
-        'Trusted authentication context is missing.',
-        'AUTH_CONTEXT_MISSING',
-        500
-      );
+      throw new DomainError('AUTH_CONTEXT_MISSING', 'Trusted authentication context is missing.');
     }
 
     return actor.authUser;
