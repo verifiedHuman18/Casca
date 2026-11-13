@@ -5,12 +5,10 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   SafeAreaView,
   Alert,
   Platform,
   StatusBar as RNStatusBar,
-  KeyboardAvoidingView,
   BackHandler,
   Modal,
 } from 'react-native';
@@ -31,6 +29,7 @@ import {
 } from './services/api';
 import { getTheme, ThemeMode } from './theme';
 import { SwipeableDrawer } from './components/SwipeableDrawer';
+import { AnimatedFocusInput } from './components/AnimatedFocusInput';
 import { ApprovalQueueDrawer } from './components/ApprovalQueueDrawer';
 import { MyRequestsDrawer } from './components/MyRequestsDrawer';
 import { AuthScreen } from './components/AuthScreen';
@@ -1264,10 +1263,7 @@ export default function App() {
         }
         colors={c}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ width: '100%' }}
-        >
+        <View style={{ width: '100%' }}>
           <Text style={styles.createSubtitle}>
             {editingEventId
               ? 'Update event details or address feedback before resubmitting.'
@@ -1343,29 +1339,29 @@ export default function App() {
             </TouchableOpacity>
           </View>
 
-          {/* Form Inputs */}
-          <TextInput
-            style={styles.inputField}
+          {/* Elevated Floating Inputs */}
+          <AnimatedFocusInput
+            label="Event Title"
             placeholder="Event Title"
-            placeholderTextColor={c.textMuted}
             value={formTitle}
             onChangeText={setFormTitle}
+            colors={c}
           />
 
-          <TextInput
-            style={styles.inputField}
+          <AnimatedFocusInput
+            label="Venue or Room"
             placeholder="Venue or Room"
-            placeholderTextColor={c.textMuted}
             value={formVenue}
             onChangeText={setFormVenue}
+            colors={c}
           />
 
-          <TextInput
-            style={[styles.inputField, styles.inputArea]}
+          <AnimatedFocusInput
+            label="Notes or Agenda"
             placeholder="Notes or Agenda (Optional)"
-            placeholderTextColor={c.textMuted}
             value={formDesc}
             onChangeText={setFormDesc}
+            colors={c}
             multiline
             numberOfLines={3}
           />
@@ -1379,7 +1375,7 @@ export default function App() {
                 : 'Publish Event'}
             </Text>
           </TouchableOpacity>
-        </KeyboardAvoidingView>
+        </View>
       </SwipeableDrawer>
 
       {/* ── APPROVAL QUEUE DRAWER (UC-15) ────────────────────────────── */}

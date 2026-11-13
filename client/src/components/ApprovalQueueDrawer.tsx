@@ -1,15 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { SwipeableDrawer } from './SwipeableDrawer';
+import { AnimatedFocusInput } from './AnimatedFocusInput';
 import type { ColorTokens } from '../theme';
 import type { UIEventItem } from '../types';
 import { formatTimeRange } from '../utils/date';
@@ -139,25 +132,14 @@ export function ApprovalQueueDrawer({
             </Text>
           </View>
 
-          <Text style={[styles.label, { color: colors.textPrimary }]}>
-            Reason for Rejection (Required)
-          </Text>
-          <TextInput
-            style={[
-              styles.reasonInput,
-              {
-                backgroundColor: colors.surfaceSubtle,
-                borderColor: colors.borderStrong,
-                color: colors.textPrimary,
-              },
-            ]}
+          <AnimatedFocusInput
+            label="Reason for Rejection (Required)"
             placeholder="Explain why this event cannot be approved (e.g., venue clash, missing approval, date conflict)..."
-            placeholderTextColor={colors.textMuted}
             value={rejectionReason}
             onChangeText={setRejectionReason}
+            colors={colors}
             multiline
             numberOfLines={4}
-            textAlignVertical="top"
           />
 
           <View style={styles.actionRow}>

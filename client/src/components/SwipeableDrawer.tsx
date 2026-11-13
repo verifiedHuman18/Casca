@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -11,6 +11,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Keyboard,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { ColorTokens } from '../theme';
@@ -34,8 +35,29 @@ export function SwipeableDrawer({
   children,
 }: SwipeableDrawerProps) {
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      e => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleClose = useCallback(() => {
+    Keyboard.dismiss();
     Animated.timing(translateY, {
       toValue: SCREEN_HEIGHT,
       duration: 200,
@@ -116,8 +138,12 @@ export function SwipeableDrawer({
           {/* Drawer Scrollable Content */}
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.contentScroll}
+            contentContainerStyle={[
+              styles.contentScroll,
+              { paddingBottom: (Platform.OS === 'ios' ? 44 : 32) + keyboardHeight },
+            ]}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {children}
           </ScrollView>
