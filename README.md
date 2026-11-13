@@ -55,7 +55,7 @@ Campus communications at universities are often fractured across unofficial mess
 ### 📅 Dual-Mode Academic Calendar
 
 - **Day View**:
-  - Asymmetrical typographic date hero (`12.11 NOV`) with Indian Standard Time (IST) formatting.
+  - Asymmetrical typographic date hero (`12 NOV`) with Indian Standard Time (IST) formatting.
   - Interactive **7-Day Week Strip Carousel**: Tap any day of the week to immediately view its schedule, complete with density dots for days containing events.
   - **Day Navigation Chevrons**: Seamless `<` and `>` buttons step day-by-day across month and year boundaries.
   - **Quick Jump to Today**: Instant return button `[ ⟲ Today ]` appears whenever viewing a non-current date.

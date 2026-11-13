@@ -62,7 +62,7 @@ Inspired by high-craft editorial design and modern minimalist calendar architect
 ## Typography
 
 - **Scale & Contrast**:
-  - `Hero Date Number`: 52px, 900 weight, -1.5px tracking (`12.11`).
+  - `Hero Date Number`: 52px, 900 weight, -1.5px tracking (`12`).
   - `Hero Month`: 28px, 800 weight, 2px tracking (`NOV`).
   - `Day of Week`: 15px, 600 weight (`Thursday`).
   - `Card Title`: 20px, 800 weight, 26px line height.
@@ -75,7 +75,7 @@ Inspired by high-craft editorial design and modern minimalist calendar architect
   - Left: Segmented control pills: `Day` (active pill `#141518` / `#f0ede6` in dark mode) | `Month` (subtle stone pill).
   - Right: Dedicated circular Settings button (`44×44dp`, `surface-subtle`, Feather `sliders` icon). Opens the swipeable **Profile & Settings** drawer.
 - **Main Screens**:
-  - **Day View**: Asymmetrical date hero header (`12.11 NOV`), quick persona pill, and day schedule cards. Tapping any event navigates directly to the dedicated **Event Details** screen.
+  - **Day View**: Asymmetrical date hero header (`12 NOV`), week strip carousel, and day schedule cards. Tapping any event navigates directly to the dedicated **Event Details** screen.
   - **Month View**: Full month interactive calendar grid (`< NOVEMBER 2026 >`) with day cells, today indicator, event dots, and selected date schedule list below the grid. Tapping an event opens the **Event Details** screen.
   - **Event Details Screen**: Standalone view with back button, large editorial event title, start/end times with duration pill, logistics & venue card, audience scope, agenda/notes, and interactive reminder action.
 - **Swipeable Drawers (Bottom Sheets)**:

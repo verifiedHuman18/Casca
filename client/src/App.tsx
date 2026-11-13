@@ -625,10 +625,7 @@ export default function App() {
               </View>
 
               <View style={styles.heroDateNumberRow}>
-                <Text style={styles.heroDateNumber}>
-                  {selectedDayGroup.dayNumber}.
-                  {String(selectedDayGroup.monthNumber + 1).padStart(2, '0')}
-                </Text>
+                <Text style={styles.heroDateNumber}>{selectedDayGroup.dayNumber}</Text>
 
                 <View style={styles.heroNavArrows}>
                   <TouchableOpacity
@@ -655,18 +652,6 @@ export default function App() {
 
               <Text style={styles.heroMonthText}>{selectedDayGroup.monthShort}</Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.heroContextRight}
-              onPress={() => setIsSettingsOpen(true)}
-              activeOpacity={0.7}
-              accessibilityLabel="Open settings drawer"
-            >
-              <Text style={styles.contextRole}>{currentRole}</Text>
-              <Text style={styles.contextSection}>
-                {user.course}-{user.section} · Year {user.year}
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* Quick Week Day Selector Strip */}
@@ -1362,14 +1347,6 @@ export default function App() {
           <Text style={styles.appName}>Casca Campus</Text>
           <Text style={styles.appMeta}>v0.1.0 · Calm, distraction-free academic scheduling</Text>
         </View>
-
-        <TouchableOpacity
-          style={styles.sheetDoneBtn}
-          onPress={() => setIsSettingsOpen(false)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.sheetDoneBtnText}>Done</Text>
-        </TouchableOpacity>
       </SwipeableDrawer>
 
       {/* ── SWIPEABLE ADD EVENT DRAWER ─────────────────────────────────── */}
@@ -1701,20 +1678,6 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
       color: c.textPrimary,
       letterSpacing: 2,
       marginTop: -4,
-    },
-    heroContextRight: {
-      alignItems: 'flex-end',
-      paddingTop: 8,
-    },
-    contextRole: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: c.textPrimary,
-    },
-    contextSection: {
-      fontSize: 12,
-      color: c.textMuted,
-      marginTop: 4,
     },
 
     // ── Week Day Selector Strip ──
@@ -2234,18 +2197,6 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
       fontSize: 12,
       color: c.textMuted,
       marginTop: 4,
-    },
-    sheetDoneBtn: {
-      backgroundColor: c.pillActiveBg,
-      borderRadius: 9999,
-      paddingVertical: 16,
-      alignItems: 'center',
-      marginTop: 8,
-    },
-    sheetDoneBtnText: {
-      color: c.pillActiveText,
-      fontSize: 15,
-      fontWeight: '700',
     },
 
     // ── Create Event Drawer ──
