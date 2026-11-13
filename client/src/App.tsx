@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,12 +10,7 @@ import {
   Alert,
   Platform,
   StatusBar as RNStatusBar,
-  Modal,
   KeyboardAvoidingView,
-  Animated,
-  PanResponder,
-  Dimensions,
-  Pressable,
   BackHandler,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -28,9 +23,15 @@ import {
   createNewEvent,
 } from './services/api';
 import { getTheme, ThemeMode } from './theme';
-
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-const SWIPE_DISMISS_THRESHOLD = 90;
+import { SwipeableDrawer } from './components/SwipeableDrawer';
+import {
+  MONTH_NAMES,
+  MONTH_SHORT,
+  DAY_SHORT,
+  getDaysInMonth,
+  getFirstDayOfWeek,
+  toDateKey,
+} from './utils/date';
 
 type MainViewMode = 'day' | 'month' | 'event';
 
@@ -64,152 +65,6 @@ const AVAILABLE_ROLES = [
     description: 'Publish Coding Club & campus hackathon events',
   },
 ];
-
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-const MONTH_SHORT = [
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC',
-];
-const DAY_SHORT = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
-}
-
-function getFirstDayOfWeek(year: number, month: number) {
-  return new Date(year, month, 1).getDay();
-}
-
-function toDateKey(year: number, month: number, day: number) {
-  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
-// ─── Swipeable Drawer Component ──────────────────────────────────────────────
-interface SwipeableDrawerProps {
-  visible: boolean;
-  onClose: () => void;
-  title: string;
-  colors: ReturnType<typeof getTheme>['colors'];
-  children: React.ReactNode;
-}
-
-function SwipeableDrawer({ visible, onClose, title, colors, children }: SwipeableDrawerProps) {
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-
-  const handleClose = useCallback(() => {
-    Animated.timing(translateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => onClose());
-  }, [translateY, onClose]);
-
-  useEffect(() => {
-    if (visible) {
-      translateY.setValue(SCREEN_HEIGHT);
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 26,
-        stiffness: 220,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible, translateY]);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          translateY.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > SWIPE_DISMISS_THRESHOLD || gestureState.vy > 0.6) {
-          handleClose();
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            damping: 24,
-            stiffness: 240,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
-  if (!visible) return null;
-
-  return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
-      <View style={drawerStyles.modalRoot}>
-        {/* Static, non-animated dark overlay per user instruction */}
-        <Pressable
-          style={[drawerStyles.staticOverlay, { backgroundColor: colors.overlayBg }]}
-          onPress={handleClose}
-        />
-
-        {/* Animated sheet container */}
-        <Animated.View
-          style={[
-            drawerStyles.sheetContainer,
-            { backgroundColor: colors.bgCard, transform: [{ translateY }] },
-          ]}
-        >
-          {/* Top Drag Handle & Header (Swipeable touch zone) */}
-          <View {...panResponder.panHandlers} style={drawerStyles.dragHeaderZone}>
-            <View style={[drawerStyles.dragHandleBar, { backgroundColor: colors.borderStrong }]} />
-            <View style={drawerStyles.headerRow}>
-              <Text style={[drawerStyles.headerTitle, { color: colors.textPrimary }]}>{title}</Text>
-              <TouchableOpacity
-                style={[drawerStyles.closeBtn, { backgroundColor: colors.surfaceSubtle }]}
-                onPress={handleClose}
-                activeOpacity={0.7}
-                accessibilityLabel="Close drawer"
-              >
-                <Feather name="x" size={18} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Drawer Scrollable Content */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={drawerStyles.contentScroll}
-            keyboardShouldPersistTaps="handled"
-          >
-            {children}
-          </ScrollView>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-}
 
 // ─── Main Application ────────────────────────────────────────────────────────
 export default function App() {
@@ -1156,59 +1011,6 @@ export default function App() {
     </SafeAreaView>
   );
 }
-
-// ─── Swipeable Drawer Styles ─────────────────────────────────────────────────
-const drawerStyles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  staticOverlay: {
-    ...StyleSheet.absoluteFill,
-  },
-  sheetContainer: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    maxHeight: '88%',
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-  },
-  dragHeaderZone: {
-    paddingTop: 12,
-    paddingHorizontal: 24,
-    paddingBottom: 14,
-  },
-  dragHandleBar: {
-    width: 44,
-    height: 5,
-    borderRadius: 3,
-    alignSelf: 'center',
-    marginBottom: 14,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  closeBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  contentScroll: {
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === 'ios' ? 44 : 32,
-  },
-});
 
 // ─── App Styles Factory ──────────────────────────────────────────────────────
 function makeStyles(c: ReturnType<typeof getTheme>['colors']) {

@@ -1,6 +1,17 @@
-import { ScopeType, EventStatus, UIEventItem, UserSession } from '../types';
+import { ScopeType, EventStatus, ClubVisibility, UIEventItem, UserSession } from '../types';
+import type { AuthResponse, AuthUser } from '@senoom/shared';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
 
 export const INITIAL_MOCK_USER: UserSession = {
   userId: 'usr-student-1',
@@ -114,7 +125,7 @@ export const INITIAL_MOCK_EVENTS: UIEventItem[] = [
     status: EventStatus.ACTIVE,
   },
 
-  // Monday (Nov 16, 2026) - IT-B Section Event (for UC-04 cross-section browsing)
+  // Monday (Nov 16, 2026) - IT-B Section Event (for cross-section browsing)
   {
     id: 'evt-109',
     title: 'Operating Systems - Concurrency & Synchronization',
@@ -154,27 +165,187 @@ export const INITIAL_MOCK_EVENTS: UIEventItem[] = [
   },
 ];
 
-export async function fetchCalendarEvents(): Promise<UIEventItem[]> {
+interface RawBackendEvent {
+  id: string;
+  title: string;
+  description: string;
+  venue: string;
+  startTime: string;
+  endTime: string;
+  scope: ScopeType;
+  status: EventStatus;
+  clubId?: string | null;
+  clubName?: string;
+  clubVisibility?: ClubVisibility | null;
+  targetSectionIds?: string[];
+  targetSections?: string[];
+}
+
+function mapBackendEventToUI(raw: RawBackendEvent): UIEventItem {
+  return {
+    id: raw.id,
+    title: raw.title,
+    description: raw.description,
+    venue: raw.venue,
+    startTime: raw.startTime,
+    endTime: raw.endTime,
+    scope: raw.scope,
+    clubName: raw.clubName || (raw.clubId ? `Club ${raw.clubId.slice(0, 6)}` : undefined),
+    targetSections: raw.targetSectionIds ?? raw.targetSections ?? [],
+    status: raw.status,
+  };
+}
+
+export function authUserToSession(authUser: AuthUser): UserSession {
+  return {
+    userId: authUser.userId,
+    name: authUser.name,
+    enrollmentNo: authUser.enrollmentNo ?? 'ADMIN',
+    course: (authUser.course ?? 'IT') as UserSession['course'],
+    section: authUser.sectionId ?? 'A',
+    year: authUser.year ?? 1,
+    positions: authUser.assignments.map(a => a.positionName),
+    clubs: authUser.clubIds,
+  };
+}
+
+export interface FetchCalendarFilter {
+  from?: string;
+  to?: string;
+  clubIds?: string[];
+  sectionIds?: string[];
+}
+
+export async function fetchCalendarEvents(filter?: FetchCalendarFilter): Promise<UIEventItem[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/calendar`, {
-      headers: { Accept: 'application/json' },
-    });
+    const params = new URLSearchParams();
+    if (filter?.from) params.set('from', filter.from);
+    if (filter?.to) params.set('to', filter.to);
+    if (filter?.clubIds) {
+      filter.clubIds.forEach(id => params.append('clubIds', id));
+    }
+    if (filter?.sectionIds) {
+      filter.sectionIds.forEach(id => params.append('sectionIds', id));
+    }
+
+    const qs = params.toString();
+    const url = `${API_BASE_URL}/api/calendar${qs ? `?${qs}` : ''}`;
+
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    const res = await fetch(url, { headers });
     if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+
     const data = await res.json();
-    return Array.isArray(data) ? data : INITIAL_MOCK_EVENTS;
+    const rawEvents: RawBackendEvent[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data.events)
+        ? data.events
+        : [];
+
+    if (rawEvents.length > 0) {
+      return rawEvents.map(mapBackendEventToUI);
+    }
+    return INITIAL_MOCK_EVENTS;
   } catch {
-    // Graceful fallback to initial events for offline / preview
+    // Graceful fallback to initial events for offline, preview or missing token
     return INITIAL_MOCK_EVENTS;
   }
+}
+
+export interface CreateEventPayload {
+  title: string;
+  description: string;
+  venue: string;
+  startTime: string;
+  endTime: string;
+  scope: ScopeType;
+  clubId?: string;
+  clubVisibility?: ClubVisibility;
+  targetSectionIds?: string[];
 }
 
 export async function createNewEvent(
   event: Omit<UIEventItem, 'id' | 'status'>
 ): Promise<UIEventItem> {
+  try {
+    if (authToken) {
+      const isCampusRequest = event.scope === ScopeType.CAMPUS;
+      const url = isCampusRequest
+        ? `${API_BASE_URL}/api/events/campus-requests`
+        : `${API_BASE_URL}/api/events`;
+
+      const payload: CreateEventPayload = {
+        title: event.title,
+        description: event.description,
+        venue: event.venue,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        scope: event.scope,
+        targetSectionIds: event.targetSections,
+      };
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const body = await res.json();
+        const created = body.event ?? body;
+        return mapBackendEventToUI(created);
+      }
+    }
+  } catch {
+    // Fall back to local creation
+  }
+
+  // Graceful local creation for offline / standalone preview
   const newEvent: UIEventItem = {
     ...event,
     id: `evt-${Date.now()}`,
     status: event.scope === ScopeType.CAMPUS ? EventStatus.PENDING_APPROVAL : EventStatus.ACTIVE,
   };
   return newEvent;
+}
+
+export async function loginApi(
+  identifier: { enrollmentNo: string } | { email: string },
+  password: string
+): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...identifier, password }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody?.error?.message || `Login failed (${res.status})`);
+  }
+
+  const data: AuthResponse = await res.json();
+  setAuthToken(data.token);
+  return data;
+}
+
+export async function logoutApi(): Promise<void> {
+  if (authToken) {
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+    } catch {
+      // Ignore network failures on logout
+    }
+  }
+  setAuthToken(null);
 }
