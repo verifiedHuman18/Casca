@@ -31,7 +31,6 @@ describe('CalendarFilter', () => {
     expect(() => new CalendarFilter({ from: 'invalid-date' })).toThrow(
       expect.objectContaining({
         code: 'INVALID_DATE',
-        statusCode: 400,
       })
     );
   });
@@ -40,7 +39,6 @@ describe('CalendarFilter', () => {
     expect(() => new CalendarFilter({ to: 'invalid-date' })).toThrow(
       expect.objectContaining({
         code: 'INVALID_DATE',
-        statusCode: 400,
       })
     );
   });
@@ -55,29 +53,34 @@ describe('CalendarFilter', () => {
     ).toThrow(
       expect.objectContaining({
         code: 'INVALID_DATE_RANGE',
-        statusCode: 400,
       })
     );
   });
 
-  it('includes events that overlap the requested time range', () => {
+  it('includes only events fully contained in the requested time range', () => {
     const filter = new CalendarFilter({
       from: '2026-11-10T10:00:00Z',
       to: '2026-11-10T11:00:00Z',
     });
 
-    const overlapping = makeEvent(EventScope.CAMPUS, {
+    const contained = makeEvent(EventScope.CAMPUS, {
+      startTime: '2026-11-10T10:15:00Z',
+      endTime: '2026-11-10T10:45:00Z',
+    });
+
+    const startsBefore = makeEvent(EventScope.CAMPUS, {
       startTime: '2026-11-10T09:30:00Z',
       endTime: '2026-11-10T10:30:00Z',
     });
 
-    const outside = makeEvent(EventScope.CAMPUS, {
-      startTime: '2026-11-10T11:01:00Z',
-      endTime: '2026-11-10T12:00:00Z',
+    const endsAfter = makeEvent(EventScope.CAMPUS, {
+      startTime: '2026-11-10T10:30:00Z',
+      endTime: '2026-11-10T11:30:00Z',
     });
 
-    expect(filter.matches(overlapping)).toBe(true);
-    expect(filter.matches(outside)).toBe(false);
+    expect(filter.matches(contained)).toBe(true);
+    expect(filter.matches(startsBefore)).toBe(false);
+    expect(filter.matches(endsAfter)).toBe(false);
   });
 
   it('excludes cancelled events by default', () => {

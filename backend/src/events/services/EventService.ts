@@ -4,8 +4,8 @@ import { EventFactory } from '../factories/EventFactory';
 import { EventRepository } from '../repositories/EventRepository';
 import { EventPermissionGateway } from '../permissions/EventPermissionGateway';
 import { ClubVisibility, EventScope, EventStatus } from '../domain/event.enums';
+import { DomainError } from '../../domain/DomainError';
 import {
-  DomainError,
   EventActor,
   EventCreateInput,
   EventMutationResult,
@@ -19,15 +19,15 @@ import {
 function parseDate(value: string | Date, field: string): Date {
   if (typeof value === 'string' && !/(Z|[+-]\d{2}:\d{2})$/i.test(value)) {
     throw new DomainError(
-      `${field} must include a timezone (for example Z or +05:30).`,
-      'INVALID_DATE'
+      'INVALID_DATE',
+      `${field} must include a timezone (for example Z or +05:30).`
     );
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    throw new DomainError(`${field} must be a valid ISO date-time.`, 'INVALID_DATE');
+    throw new DomainError('INVALID_DATE', `${field} must be a valid ISO date-time.`);
   }
 
   return date;
@@ -36,22 +36,22 @@ function parseDate(value: string | Date, field: string): Date {
 /** Validate required create-event fields and the time range. */
 function validateInput(input: EventCreateInput): void {
   if (!input.title?.trim()) {
-    throw new DomainError('Title is required.', 'VALIDATION_ERROR');
+    throw new DomainError('VALIDATION_ERROR', 'Title is required.');
   }
 
   if (!input.venue?.trim()) {
-    throw new DomainError('Venue is required.', 'VALIDATION_ERROR');
+    throw new DomainError('VALIDATION_ERROR', 'Venue is required.');
   }
 
   if (input.description == null) {
-    throw new DomainError('Description is required.', 'VALIDATION_ERROR');
+    throw new DomainError('VALIDATION_ERROR', 'Description is required.');
   }
 
   const start = parseDate(input.startTime, 'startTime');
   const end = parseDate(input.endTime, 'endTime');
 
   if (end <= start) {
-    throw new DomainError('Event end must be after event start.', 'INVALID_TIME_RANGE');
+    throw new DomainError('INVALID_TIME_RANGE', 'Event end must be after event start.');
   }
 }
 
@@ -84,20 +84,20 @@ export class EventService {
 
     if (input.scope === EventScope.CLUB) {
       if (!input.clubId) {
-        throw new DomainError('clubId is required for a club event.', 'VALIDATION_ERROR');
+        throw new DomainError('VALIDATION_ERROR', 'clubId is required for a club event.');
       }
 
       targetId = input.clubId;
 
       if (!(await this.permissions.canPublish(actor, EventScope.CLUB, targetId))) {
-        throw new DomainError('You cannot publish events for this club.', 'FORBIDDEN', 403);
+        throw new DomainError('FORBIDDEN', 'You cannot publish events for this club.');
       }
 
       if (
         input.clubVisibility !== undefined &&
         !Object.values(ClubVisibility).includes(input.clubVisibility)
       ) {
-        throw new DomainError('Invalid club visibility.', 'VALIDATION_ERROR');
+        throw new DomainError('VALIDATION_ERROR', 'Invalid club visibility.');
       }
 
       input = {
@@ -106,23 +106,19 @@ export class EventService {
       };
     } else if (input.scope === EventScope.SECTION) {
       if (!actor.sectionId) {
-        throw new DomainError('Your account has no section.', 'FORBIDDEN', 403);
+        throw new DomainError('FORBIDDEN', 'Your account has no section.');
       }
 
       // A CR may only target their own section. The target is then derived
       // from the authenticated actor, not trusted from the request body.
       if (input.targetSectionIds?.some(id => id !== actor.sectionId)) {
-        throw new DomainError(
-          'A CR can create events only for their own section.',
-          'FORBIDDEN',
-          403
-        );
+        throw new DomainError('FORBIDDEN', 'A CR can create events only for their own section.');
       }
 
       targetId = actor.sectionId;
 
       if (!(await this.permissions.canPublish(actor, EventScope.SECTION, targetId))) {
-        throw new DomainError('You cannot publish events for this section.', 'FORBIDDEN', 403);
+        throw new DomainError('FORBIDDEN', 'You cannot publish events for this section.');
       }
 
       input = {
@@ -134,13 +130,12 @@ export class EventService {
       // bearers must use requestCampusEvent instead.
       if (!(await this.permissions.canPublish(actor, EventScope.CAMPUS))) {
         throw new DomainError(
-          'Only an Admin can publish a campus event directly. Submit a request instead.',
           'FORBIDDEN',
-          403
+          'Only an Admin can publish a campus event directly. Submit a request instead.'
         );
       }
     } else {
-      throw new DomainError('Unsupported event scope.', 'VALIDATION_ERROR');
+      throw new DomainError('VALIDATION_ERROR', 'Unsupported event scope.');
     }
 
     const event = EventFactory.create(input, actor.userId, EventStatus.ACTIVE);
@@ -162,11 +157,7 @@ export class EventService {
     validateInput(complete);
 
     if (!(await this.permissions.canRequestCampusEvent(actor))) {
-      throw new DomainError(
-        'You do not have permission to request a campus event.',
-        'FORBIDDEN',
-        403
-      );
+      throw new DomainError('FORBIDDEN', 'You do not have permission to request a campus event.');
     }
 
     const event = EventFactory.create(complete, actor.userId, EventStatus.PENDING_APPROVAL);
@@ -184,20 +175,19 @@ export class EventService {
     const event = await this.requireEvent(eventId);
 
     if (!(await this.permissions.canEdit(actor, event))) {
-      throw new DomainError('You are not allowed to edit this event.', 'FORBIDDEN', 403);
+      throw new DomainError('FORBIDDEN', 'You are not allowed to edit this event.');
     }
 
     if (event.status === EventStatus.CANCELLED || event.status === EventStatus.PENDING_APPROVAL) {
       throw new DomainError(
-        'This event cannot be edited in its current status.',
         'INVALID_EVENT_STATE',
-        409
+        'This event cannot be edited in its current status.'
       );
     }
 
     if (patch.title !== undefined) {
       if (!patch.title.trim()) {
-        throw new DomainError('Title is required.', 'VALIDATION_ERROR');
+        throw new DomainError('VALIDATION_ERROR', 'Title is required.');
       }
       event.title = patch.title.trim();
     }
@@ -208,20 +198,20 @@ export class EventService {
 
     if (patch.venue !== undefined) {
       if (!patch.venue.trim()) {
-        throw new DomainError('Venue is required.', 'VALIDATION_ERROR');
+        throw new DomainError('VALIDATION_ERROR', 'Venue is required.');
       }
       event.venue = patch.venue.trim();
     }
 
     if (patch.clubVisibility !== undefined) {
       if (!Object.values(ClubVisibility).includes(patch.clubVisibility)) {
-        throw new DomainError('Invalid club visibility.', 'VALIDATION_ERROR');
+        throw new DomainError('VALIDATION_ERROR', 'Invalid club visibility.');
       }
 
       if (!(event instanceof ClubEvent)) {
         throw new DomainError(
-          'Visibility can only be changed for club events.',
-          'VALIDATION_ERROR'
+          'VALIDATION_ERROR',
+          'Visibility can only be changed for club events.'
         );
       }
 
@@ -255,11 +245,11 @@ export class EventService {
     const event = await this.requireEvent(eventId);
 
     if (!(await this.permissions.canEdit(actor, event))) {
-      throw new DomainError('You are not allowed to cancel this event.', 'FORBIDDEN', 403);
+      throw new DomainError('FORBIDDEN', 'You are not allowed to cancel this event.');
     }
 
     if (event.status === EventStatus.CANCELLED) {
-      throw new DomainError('Event is already cancelled.', 'INVALID_EVENT_STATE', 409);
+      throw new DomainError('INVALID_EVENT_STATE', 'Event is already cancelled.');
     }
 
     event.cancel();
@@ -271,23 +261,15 @@ export class EventService {
     const event = await this.requireEvent(eventId);
 
     if (event.scope !== EventScope.CAMPUS || event.status !== EventStatus.PENDING_APPROVAL) {
-      throw new DomainError(
-        'Only pending campus requests can be approved.',
-        'INVALID_EVENT_STATE',
-        409
-      );
+      throw new DomainError('INVALID_EVENT_STATE', 'Only pending campus requests can be approved.');
     }
 
     if (event.createdBy === actor.userId) {
-      throw new DomainError(
-        'You cannot approve your own campus-event request.',
-        'SELF_APPROVAL',
-        403
-      );
+      throw new DomainError('SELF_APPROVAL', 'You cannot approve your own campus-event request.');
     }
 
     if (!(await this.permissions.canApprove(actor, event))) {
-      throw new DomainError('Only an Admin can approve campus events.', 'FORBIDDEN', 403);
+      throw new DomainError('FORBIDDEN', 'Only an Admin can approve campus events.');
     }
 
     event.status = EventStatus.ACTIVE;
@@ -301,29 +283,21 @@ export class EventService {
   /** Reject a pending campus request and store the required reason. */
   async rejectEvent(actor: EventActor, eventId: string, reason: string): Promise<Event> {
     if (!reason?.trim()) {
-      throw new DomainError('A rejection reason is required.', 'VALIDATION_ERROR');
+      throw new DomainError('VALIDATION_ERROR', 'A rejection reason is required.');
     }
 
     const event = await this.requireEvent(eventId);
 
     if (event.scope !== EventScope.CAMPUS || event.status !== EventStatus.PENDING_APPROVAL) {
-      throw new DomainError(
-        'Only pending campus requests can be rejected.',
-        'INVALID_EVENT_STATE',
-        409
-      );
+      throw new DomainError('INVALID_EVENT_STATE', 'Only pending campus requests can be rejected.');
     }
 
     if (event.createdBy === actor.userId) {
-      throw new DomainError(
-        'You cannot reject your own campus-event request.',
-        'SELF_APPROVAL',
-        403
-      );
+      throw new DomainError('SELF_APPROVAL', 'You cannot reject your own campus-event request.');
     }
 
     if (!(await this.permissions.canApprove(actor, event))) {
-      throw new DomainError('Only an Admin can reject campus events.', 'FORBIDDEN', 403);
+      throw new DomainError('FORBIDDEN', 'Only an Admin can reject campus events.');
     }
 
     event.status = EventStatus.REJECTED;
@@ -348,32 +322,23 @@ export class EventService {
 
     if (event.scope !== EventScope.CAMPUS || event.status !== EventStatus.REJECTED) {
       throw new DomainError(
-        'Only rejected campus requests can be resubmitted.',
         'INVALID_EVENT_STATE',
-        409
+        'Only rejected campus requests can be resubmitted.'
       );
     }
 
     if (event.createdBy !== actor.userId) {
-      throw new DomainError(
-        'Only the original requester can resubmit this request.',
-        'FORBIDDEN',
-        403
-      );
+      throw new DomainError('FORBIDDEN', 'Only the original requester can resubmit this request.');
     }
 
     // Recheck current permission before allowing resubmission.
     if (!(await this.permissions.canRequestCampusEvent(actor))) {
-      throw new DomainError(
-        'You no longer have permission to request campus events.',
-        'FORBIDDEN',
-        403
-      );
+      throw new DomainError('FORBIDDEN', 'You no longer have permission to request campus events.');
     }
 
     if (patch.title !== undefined) {
       if (!patch.title.trim()) {
-        throw new DomainError('Title is required.', 'VALIDATION_ERROR');
+        throw new DomainError('VALIDATION_ERROR', 'Title is required.');
       }
       event.title = patch.title.trim();
     }
@@ -384,7 +349,7 @@ export class EventService {
 
     if (patch.venue !== undefined) {
       if (!patch.venue.trim()) {
-        throw new DomainError('Venue is required.', 'VALIDATION_ERROR');
+        throw new DomainError('VALIDATION_ERROR', 'Venue is required.');
       }
       event.venue = patch.venue.trim();
     }
@@ -412,7 +377,7 @@ export class EventService {
   /** Return the approval queue only to actors allowed to review requests. */
   async getApprovalQueue(actor: EventActor): Promise<Event[]> {
     if (!(await this.permissions.canViewApprovalQueue(actor))) {
-      throw new DomainError('Only an Admin can view the approval queue.', 'FORBIDDEN', 403);
+      throw new DomainError('FORBIDDEN', 'Only an Admin can view the approval queue.');
     }
 
     return this.repository.findPendingApproval();
@@ -422,7 +387,7 @@ export class EventService {
     const event = await this.repository.findById(eventId);
 
     if (!event) {
-      throw new DomainError('Event not found.', 'NOT_FOUND', 404);
+      throw new DomainError('NOT_FOUND', 'Event not found.');
     }
 
     return event;

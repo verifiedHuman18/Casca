@@ -43,6 +43,26 @@ describe('Member B event and calendar services', () => {
     service = new EventService(repo, permissions);
   });
 
+  const calendarWindow = {
+    from: '2026-11-01T00:00:00Z',
+    to: '2027-01-01T00:00:00Z',
+  };
+
+  const getCalendar = (
+    student: Parameters<CalendarService['getCalendar']>[0],
+    filters: Parameters<CalendarService['getCalendar']>[1] = {}
+  ) =>
+    new CalendarService(repo).getCalendar(student, {
+      ...calendarWindow,
+      ...filters,
+    });
+
+  it('rejects calendar queries without both date bounds', async () => {
+    await expect(new CalendarService(repo).getCalendar(cr)).rejects.toMatchObject({
+      code: 'INVALID_DATE_RANGE',
+    });
+  });
+
   // Scenario 1: CR creates an event for their own section.
   it('scenario 1: CR creates own section event and own section sees it', async () => {
     const { event } = await service.createEvent(cr, {
@@ -50,9 +70,7 @@ describe('Member B event and calendar services', () => {
       scope: EventScope.SECTION,
     });
 
-    const calendar = new CalendarService(repo);
-
-    expect((await calendar.getCalendar(cr)).map(e => e.id)).toContain(event.id);
+    expect((await getCalendar(cr)).map(e => e.id)).toContain(event.id);
   });
 
   // Scenario 3: CR cannot create an event for another section.
@@ -79,7 +97,7 @@ describe('Member B event and calendar services', () => {
 
     expect(await repo.findById(event.id)).not.toBeNull();
 
-    expect(await new CalendarService(repo).getCalendar(cr)).toHaveLength(0);
+    expect(await getCalendar(cr)).toHaveLength(0);
   });
 
   // Scenario 8: Members-only visibility.
@@ -91,11 +109,9 @@ describe('Member B event and calendar services', () => {
       clubVisibility: ClubVisibility.MEMBERS_ONLY,
     });
 
-    const calendar = new CalendarService(repo);
-
     expect(
       (
-        await calendar.getCalendar({
+        await getCalendar({
           ...cr,
           clubMembershipIds: ['club-1'],
         })
@@ -104,7 +120,7 @@ describe('Member B event and calendar services', () => {
 
     expect(
       (
-        await calendar.getCalendar({
+        await getCalendar({
           ...cr,
           clubMembershipIds: [],
         })
@@ -123,7 +139,7 @@ describe('Member B event and calendar services', () => {
 
     expect(
       (
-        await new CalendarService(repo).getCalendar({
+        await getCalendar({
           userId: 'random-student',
         })
       ).some(e => e.id === event.id)
@@ -137,11 +153,9 @@ describe('Member B event and calendar services', () => {
       scope: EventScope.SECTION,
     });
 
-    const calendar = new CalendarService(repo);
-
     expect(
       (
-        await calendar.getCalendar({
+        await getCalendar({
           userId: 'other',
           sectionId: 'IT-B',
         })
@@ -151,7 +165,7 @@ describe('Member B event and calendar services', () => {
     // Adding IT-A to the extra section selection makes it visible.
     expect(
       (
-        await calendar.getCalendar(
+        await getCalendar(
           {
             userId: 'other',
             sectionId: 'IT-B',
@@ -171,7 +185,7 @@ describe('Member B event and calendar services', () => {
     expect(event.status).toBe(EventStatus.PENDING_APPROVAL);
 
     expect(
-      await new CalendarService(repo).getCalendar({
+      await getCalendar({
         userId: 'student',
       })
     ).toHaveLength(0);
@@ -180,7 +194,7 @@ describe('Member B event and calendar services', () => {
 
     expect(
       (
-        await new CalendarService(repo).getCalendar({
+        await getCalendar({
           userId: 'student',
         })
       ).some(e => e.id === event.id)
@@ -198,7 +212,7 @@ describe('Member B event and calendar services', () => {
     expect(rejected.decisionNote).toBe('Venue not approved');
 
     expect(
-      await new CalendarService(repo).getCalendar({
+      await getCalendar({
         userId: 'student',
       })
     ).toHaveLength(0);
@@ -303,7 +317,6 @@ describe('Member B event and calendar services', () => {
       })
     ).rejects.toMatchObject({
       code: 'FORBIDDEN',
-      statusCode: 403,
     });
   });
 });

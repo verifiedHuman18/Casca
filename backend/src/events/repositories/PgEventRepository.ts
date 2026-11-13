@@ -3,7 +3,7 @@ import { Event } from '../domain/Event';
 import { CampusEvent, ClubEvent, SectionEvent } from '../domain';
 import { ClubVisibility, EventScope, EventStatus } from '../domain/event.enums';
 import { EventProps, ClashWarning } from '../domain/event.types';
-import { EventRepository } from './EventRepository';
+import type { CalendarQuery, EventRepository } from './EventRepository';
 
 type DbRow = {
   event_id: string;
@@ -163,6 +163,49 @@ export class PgEventRepository implements EventRepository {
   }
   async findAll(): Promise<Event[]> {
     return this.rows('SELECT * FROM events ORDER BY start_time ASC');
+  }
+
+  /**
+   * Fetch calendar-visible events in one SQL query.
+   * Section IDs are aggregated here so hydrate() never issues per-event queries.
+   */
+  async findForCalendar(query: CalendarQuery): Promise<Event[]> {
+    return this.rows(
+      `SELECT
+         e.*,
+         COALESCE(
+           array_agg(es.section_id ORDER BY es.section_id)
+             FILTER (WHERE es.section_id IS NOT NULL),
+           ARRAY[]::text[]
+         ) AS target_section_ids
+       FROM events e
+       LEFT JOIN event_sections es ON es.event_id = e.event_id
+       WHERE e.status = 'ACTIVE'
+         AND e.start_time >= $1
+         AND e.end_time <= $2
+         AND (
+           e.event_type <> 'CLUB'
+           OR cardinality($3::text[]) = 0
+           OR e.club_id = ANY($3::text[])
+         )
+         AND (
+           e.event_type <> 'CLUB'
+           OR e.club_visibility = 'PUBLIC'
+           OR e.club_id = ANY($4::text[])
+         )
+         AND (
+           e.event_type <> 'SECTION'
+           OR EXISTS (
+             SELECT 1
+             FROM event_sections visible_section
+             WHERE visible_section.event_id = e.event_id
+               AND visible_section.section_id = ANY($5::text[])
+           )
+         )
+       GROUP BY e.event_id
+       ORDER BY e.start_time ASC`,
+      [query.from, query.to, query.clubIds, query.clubMembershipIds, query.sectionIds]
+    );
   }
   async findPendingApproval(): Promise<Event[]> {
     return this.rows(
