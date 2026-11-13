@@ -30,11 +30,21 @@ lerna-debug.log*
 logs/
 *.log
 
+# Impeccable & local agent artifacts
+.gemini/
+.github/skills/impeccable/scripts/bin/
+.impeccable/config.local.json
+.impeccable/questions/
+.impeccable/review/
+.impeccable/mocks/
+
 # React Native & Expo
 .expo/
 .expo-shared/
 web-build/
 .metro-health-check*
+client/android/
+client/ios/
 
 # Android build artifacts
 android/app/build/

@@ -1,5 +1,5 @@
 /**
- * Campus Management Platform - Shared Enums and Interfaces
+ * Casca - Shared Enums and Interfaces
  * Single source of truth for core domain constants across backend and client.
  */
 

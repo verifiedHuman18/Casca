@@ -23,6 +23,7 @@ const authService = new AuthService(
 );
 const app = createApp({
   authService,
+  pool,
   corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean),
   trustProxy: process.env.TRUST_PROXY === 'true',
 });

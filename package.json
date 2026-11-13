@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "Campus Management Platform - OOPS & SE Project",
+  "description": "Casca - Campus Management Platform - OOPS & SE Project",
   "workspaces": [
     "backend",
     "client",
@@ -23,11 +23,22 @@
     "@commitlint/cli": "^19.6.1",
     "@commitlint/config-conventional": "^19.6.0",
     "@eslint/js": "^9.18.0",
+    "@types/react": "^19.3.0",
     "eslint": "^9.18.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.11",
     "prettier": "^3.4.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "bcrypt@6.0.0": true
+  },
+  "overrides": {
+    "@types/react": "^19.3.0",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.5"
+    }
   }
 }

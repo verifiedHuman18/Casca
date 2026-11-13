@@ -9,3 +9,7 @@ __pycache__/
 .husky/_/
 package-lock.json
 *.tsbuildinfo
+.gemini/
+.github/skills/
+.github/agents/
+.github/hooks/
