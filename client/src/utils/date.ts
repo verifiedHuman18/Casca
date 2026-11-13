@@ -77,6 +77,44 @@ export function parseDateKey(key: string): Date {
   return new Date(y, m - 1, d, 12, 0, 0);
 }
 
+export interface WeekDay {
+  date: Date;
+  dateKey: string;
+  dayNumber: number;
+  dayShort: string;
+}
+
+export function getWeekDays(dateKey: string): WeekDay[] {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const cur = new Date(y, m - 1, d);
+  const dow = cur.getDay(); // 0 = Sunday
+  const sunday = new Date(y, m - 1, d - dow);
+
+  const days: WeekDay[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
+    days.push({
+      date,
+      dateKey: toDateKey(date.getFullYear(), date.getMonth(), date.getDate()),
+      dayNumber: date.getDate(),
+      dayShort: DAY_SHORT[date.getDay()],
+    });
+  }
+  return days;
+}
+
+export function getPreviousDayKey(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const prev = new Date(y, m - 1, d - 1);
+  return toDateKey(prev.getFullYear(), prev.getMonth(), prev.getDate());
+}
+
+export function getNextDayKey(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const next = new Date(y, m - 1, d + 1);
+  return toDateKey(next.getFullYear(), next.getMonth(), next.getDate());
+}
+
 export function getMonthMatrix(year: number, monthIndex: number): CalendarDay[] {
   const firstDayOfMonth = new Date(year, monthIndex, 1);
   const startingDayOfWeek = firstDayOfMonth.getDay(); // 0 is Sunday

@@ -40,6 +40,9 @@ import {
   getDaysInMonth,
   getFirstDayOfWeek,
   toDateKey,
+  getWeekDays,
+  getPreviousDayKey,
+  getNextDayKey,
 } from './utils/date';
 
 type MainViewMode = 'day' | 'month' | 'event';
@@ -466,6 +469,41 @@ export default function App() {
   }, [calendarYear, calendarMonth]);
 
   const todayKey = toDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const handlePrevDay = () => {
+    const prevKey = getPreviousDayKey(selectedDayKey);
+    setSelectedDayKey(prevKey);
+    const { month, year } = parseDateKey(prevKey);
+    setCalendarMonth(month);
+    setCalendarYear(year);
+  };
+
+  const handleNextDay = () => {
+    const nextKey = getNextDayKey(selectedDayKey);
+    setSelectedDayKey(nextKey);
+    const { month, year } = parseDateKey(nextKey);
+    setCalendarMonth(month);
+    setCalendarYear(year);
+  };
+
+  const handleToday = () => {
+    setSelectedDayKey(todayKey);
+    const { month, year } = parseDateKey(todayKey);
+    setCalendarMonth(month);
+    setCalendarYear(year);
+  };
+
+  const handleSelectDay = (key: string) => {
+    setSelectedDayKey(key);
+    const { month, year } = parseDateKey(key);
+    setCalendarMonth(month);
+    setCalendarYear(year);
+  };
+
+  const currentWeekDays = useMemo(() => {
+    return getWeekDays(selectedDayKey);
+  }, [selectedDayKey]);
+
   const styles = useMemo(() => makeStyles(c), [c]);
   const statusBarStyle = themeMode === 'dark' ? 'light' : 'dark';
 
@@ -511,7 +549,7 @@ export default function App() {
                 activeOpacity={0.8}
                 accessibilityLabel="Open approval queue"
               >
-                <Feather name="check-square" size={15} color={c.pillActiveBg} />
+                <Feather name="check-square" size={16} color={c.pillActiveBg} />
                 <Text style={styles.quickNavBtnText}>Queue</Text>
               </TouchableOpacity>
             )}
@@ -523,7 +561,7 @@ export default function App() {
                 activeOpacity={0.8}
                 accessibilityLabel="Open my requests"
               >
-                <Feather name="file-text" size={15} color={c.pillActiveBg} />
+                <Feather name="file-text" size={16} color={c.pillActiveBg} />
                 <Text style={styles.quickNavBtnText}>Proposals</Text>
               </TouchableOpacity>
             )}
@@ -564,14 +602,57 @@ export default function App() {
       {/* ── 1. DAY VIEW ────────────────────────────────────────────────── */}
       {viewMode === 'day' && (
         <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-          {/* Hero Date Display */}
+          {/* Hero Date Display & Navigation */}
           <View style={styles.heroDateRow}>
             <View style={styles.heroDateLeft}>
-              <Text style={styles.heroDayOfWeek}>{selectedDayGroup.dayOfWeek}</Text>
-              <Text style={styles.heroDateNumber}>
-                {selectedDayGroup.dayNumber}.
-                {String(selectedDayGroup.monthNumber + 1).padStart(2, '0')}
-              </Text>
+              <View style={styles.heroDayOfWeekRow}>
+                <Text style={styles.heroDayOfWeek}>{selectedDayGroup.dayOfWeek}</Text>
+                {selectedDayKey === todayKey ? (
+                  <View style={styles.heroTodayBadge}>
+                    <Text style={styles.heroTodayBadgeText}>Today</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.heroJumpTodayBtn}
+                    onPress={handleToday}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Jump to today"
+                  >
+                    <Feather name="rotate-ccw" size={11} color={c.pillActiveText} />
+                    <Text style={styles.heroJumpTodayText}>Today</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={styles.heroDateNumberRow}>
+                <Text style={styles.heroDateNumber}>
+                  {selectedDayGroup.dayNumber}.
+                  {String(selectedDayGroup.monthNumber + 1).padStart(2, '0')}
+                </Text>
+
+                <View style={styles.heroNavArrows}>
+                  <TouchableOpacity
+                    style={styles.heroNavBtn}
+                    onPress={handlePrevDay}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityLabel="Previous day"
+                  >
+                    <Feather name="chevron-left" size={20} color={c.textPrimary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.heroNavBtn}
+                    onPress={handleNextDay}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityLabel="Next day"
+                  >
+                    <Feather name="chevron-right" size={20} color={c.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               <Text style={styles.heroMonthText}>{selectedDayGroup.monthShort}</Text>
             </View>
 
@@ -586,6 +667,53 @@ export default function App() {
                 {user.course}-{user.section} · Year {user.year}
               </Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Quick Week Day Selector Strip */}
+          <View style={styles.weekStripContainer}>
+            {currentWeekDays.map(item => {
+              const isSelected = item.dateKey === selectedDayKey;
+              const isToday = item.dateKey === todayKey;
+              const dayEvents = eventsByDay.get(item.dateKey) || [];
+              const hasEvents = dayEvents.length > 0;
+
+              return (
+                <TouchableOpacity
+                  key={item.dateKey}
+                  style={[
+                    styles.weekDayPill,
+                    isSelected && styles.weekDayPillSelected,
+                    isToday && !isSelected && styles.weekDayPillToday,
+                  ]}
+                  onPress={() => handleSelectDay(item.dateKey)}
+                  activeOpacity={0.75}
+                  accessibilityLabel={`Select ${item.dayShort} ${item.dayNumber}`}
+                >
+                  <Text style={[styles.weekDayName, isSelected && styles.weekDayNameSelected]}>
+                    {item.dayShort}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.weekDayNumber,
+                      isSelected && styles.weekDayNumberSelected,
+                      isToday && !isSelected && styles.weekDayNumberToday,
+                    ]}
+                  >
+                    {item.dayNumber}
+                  </Text>
+                  <View
+                    style={[
+                      styles.weekEventDot,
+                      hasEvents
+                        ? isSelected
+                          ? styles.weekEventDotActive
+                          : styles.weekEventDotVisible
+                        : styles.weekEventDotHidden,
+                    ]}
+                  />
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Section Divider */}
@@ -1435,14 +1563,18 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
     segmentedControls: {
       flexDirection: 'row',
       backgroundColor: c.surfaceSubtle,
-      borderRadius: 9999,
+      borderRadius: 22,
+      height: 44,
       padding: 4,
+      alignItems: 'center',
       gap: 4,
     },
     segmentBtn: {
-      paddingHorizontal: 22,
-      paddingVertical: 10,
-      borderRadius: 9999,
+      height: 36,
+      paddingHorizontal: 20,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     segmentBtnActive: {
       backgroundColor: c.pillActiveBg,
@@ -1489,22 +1621,58 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
       paddingBottom: 110,
     },
 
-    // ── Day View Hero ──
+    // ── Day View Hero & Navigation ──
     heroDateRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
       marginTop: 18,
-      marginBottom: 26,
+      marginBottom: 20,
     },
     heroDateLeft: {
       alignItems: 'flex-start',
+    },
+    heroDayOfWeekRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 4,
     },
     heroDayOfWeek: {
       fontSize: 15,
       fontWeight: '600',
       color: c.textSecondary,
-      marginBottom: 2,
+    },
+    heroTodayBadge: {
+      backgroundColor: c.surfaceSubtle,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 9999,
+    },
+    heroTodayBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: c.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    heroJumpTodayBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.pillActiveBg,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 9999,
+      gap: 4,
+    },
+    heroJumpTodayText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: c.pillActiveText,
+    },
+    heroDateNumberRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
     },
     heroDateNumber: {
       fontSize: 52,
@@ -1512,6 +1680,20 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
       color: c.textPrimary,
       letterSpacing: -1.5,
       lineHeight: 56,
+    },
+    heroNavArrows: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginLeft: 14,
+    },
+    heroNavBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: c.surfaceSubtle,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     heroMonthText: {
       fontSize: 28,
@@ -1533,6 +1715,74 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
       fontSize: 12,
       color: c.textMuted,
       marginTop: 4,
+    },
+
+    // ── Week Day Selector Strip ──
+    weekStripContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      backgroundColor: c.surfaceSubtle,
+      borderRadius: 20,
+      padding: 6,
+      marginBottom: 24,
+    },
+    weekDayPill: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+      borderRadius: 14,
+    },
+    weekDayPillSelected: {
+      backgroundColor: c.pillActiveBg,
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.12,
+      shadowRadius: 4,
+    },
+    weekDayPillToday: {
+      borderWidth: 1.5,
+      borderColor: c.pillActiveBg,
+    },
+    weekDayName: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: c.textMuted,
+      letterSpacing: 0.5,
+      marginBottom: 4,
+    },
+    weekDayNameSelected: {
+      color: c.pillActiveText,
+      opacity: 0.9,
+    },
+    weekDayNumber: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: c.textPrimary,
+    },
+    weekDayNumberSelected: {
+      color: c.pillActiveText,
+      fontWeight: '800',
+    },
+    weekDayNumberToday: {
+      color: c.pillActiveBg,
+      fontWeight: '800',
+    },
+    weekEventDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      marginTop: 4,
+    },
+    weekEventDotVisible: {
+      backgroundColor: c.pillActiveBg,
+    },
+    weekEventDotActive: {
+      backgroundColor: c.pillActiveText,
+    },
+    weekEventDotHidden: {
+      backgroundColor: 'transparent',
     },
     sectionHeaderRow: {
       flexDirection: 'row',
@@ -2081,14 +2331,15 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
     quickNavBtn: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
+      height: 44,
+      paddingHorizontal: 16,
+      borderRadius: 22,
       backgroundColor: c.surfaceSubtle,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 9999,
       gap: 6,
     },
     quickNavBtnText: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '600',
       color: c.textPrimary,
     },

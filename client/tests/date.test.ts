@@ -9,6 +9,9 @@ import {
   formatTime,
   formatTimeRange,
   getMonthMatrix,
+  getWeekDays,
+  getPreviousDayKey,
+  getNextDayKey,
 } from '../src/utils/date';
 
 describe('Date Utilities (client/src/utils/date.ts)', () => {
@@ -120,6 +123,55 @@ describe('Date Utilities (client/src/utils/date.ts)', () => {
       expect(todayCell?.isToday).toBe(true);
       expect(todayCell?.isCurrentMonth).toBe(true);
       expect(todayCell?.dayNumber).toBe(12);
+    });
+  });
+
+  describe('getPreviousDayKey and getNextDayKey', () => {
+    it('steps forward and backward within the same month', () => {
+      expect(getPreviousDayKey('2026-11-12')).toBe('2026-11-11');
+      expect(getNextDayKey('2026-11-12')).toBe('2026-11-13');
+    });
+
+    it('crosses month boundaries correctly', () => {
+      expect(getPreviousDayKey('2026-11-01')).toBe('2026-10-31');
+      expect(getNextDayKey('2026-10-31')).toBe('2026-11-01');
+    });
+
+    it('crosses year boundaries correctly', () => {
+      expect(getPreviousDayKey('2026-01-01')).toBe('2025-12-31');
+      expect(getNextDayKey('2025-12-31')).toBe('2026-01-01');
+    });
+
+    it('handles leap year boundaries correctly', () => {
+      expect(getNextDayKey('2024-02-28')).toBe('2024-02-29');
+      expect(getNextDayKey('2024-02-29')).toBe('2024-03-01');
+      expect(getPreviousDayKey('2024-03-01')).toBe('2024-02-29');
+    });
+  });
+
+  describe('getWeekDays', () => {
+    it('returns a 7-day array starting on Sunday for the given date', () => {
+      // 2026-11-12 is Thursday, so Sunday of that week is 2026-11-08
+      const week = getWeekDays('2026-11-12');
+      expect(week).toHaveLength(7);
+      expect(week[0].dateKey).toBe('2026-11-08');
+      expect(week[0].dayShort).toBe('SUN');
+      expect(week[0].dayNumber).toBe(8);
+
+      expect(week[4].dateKey).toBe('2026-11-12');
+      expect(week[4].dayShort).toBe('THU');
+      expect(week[4].dayNumber).toBe(12);
+
+      expect(week[6].dateKey).toBe('2026-11-14');
+      expect(week[6].dayShort).toBe('SAT');
+      expect(week[6].dayNumber).toBe(14);
+    });
+
+    it('handles week crossing month boundaries', () => {
+      // 2026-11-02 is Monday, Sunday is 2026-11-01
+      const week = getWeekDays('2026-11-01');
+      expect(week[0].dateKey).toBe('2026-11-01');
+      expect(week[0].dayShort).toBe('SUN');
     });
   });
 });
