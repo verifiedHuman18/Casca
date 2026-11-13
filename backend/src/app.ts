@@ -3,19 +3,25 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import type { Pool } from 'pg';
 import { AuthController } from './controllers/AuthController';
+import { RegistryController } from './controllers/RegistryController';
 import { PermissionServiceEventGateway } from './events/permissions/PermissionServiceEventGateway';
 import { createEventRouter } from './events/routes/event.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { createAuthLimiters, type AuthLimiters } from './middleware/rateLimiters';
 import { createRequireAuth } from './middleware/requireAuth';
+import { requirePermission } from './middleware/requirePermission';
 import { createAuthRouter } from './routes/auth';
+import { createRegistryRouter } from './routes/registry';
 import type { AuthService } from './services/AuthService';
 import { PermissionService } from './services/PermissionService';
+import type { RegistryService } from './services/RegistryService';
 
 export interface AppDeps {
   authService: AuthService;
   /** Source of the permission answers for every route. Defaults to the real rules. */
   permissions?: PermissionService;
+  /** Sections, clubs, positions and students. Without it those routes are not mounted. */
+  registry?: RegistryService;
   /** Database pool for the events and calendar module. Without it those routes are not mounted. */
   pool?: Pool;
   limiters?: AuthLimiters;
@@ -35,6 +41,7 @@ export function createApp(deps: AppDeps): Express {
   app.use(express.json({ limit: '10kb' }));
 
   const requireAuth = createRequireAuth(deps.authService);
+  const permissions = deps.permissions ?? new PermissionService();
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
@@ -47,10 +54,20 @@ export function createApp(deps: AppDeps): Express {
       deps.limiters ?? createAuthLimiters()
     )
   );
-  // Phases 7 and 8 mount their routers here, passing requireAuth and PermissionService.
+  // Registry routes come before the events router, because that router requires auth on all of /api.
+  if (deps.registry) {
+    app.use(
+      '/api',
+      createRegistryRouter(
+        new RegistryController(deps.registry),
+        requireAuth,
+        requirePermission(user => permissions.canManageRegistry(user))
+      )
+    );
+  }
+  // Phase 8 mounts role assignment and GET /api/me here.
 
   if (deps.pool) {
-    const permissions = deps.permissions ?? new PermissionService();
     // requireAuth runs here, not inside the events router, so a 401 reaches the shared
     // errorHandler instead of the events module's own handler. The router's built-in
     // authentication step is replaced by a no-op.
