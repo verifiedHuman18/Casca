@@ -1,5 +1,6 @@
 import 'dotenv/config';
 
+import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 
 import { PgEventRepository } from '../src/events/repositories/PgEventRepository';
@@ -20,10 +21,12 @@ async function main() {
   });
 
   let eventId: string | null = null;
+  let smokeUserId: string | null = null;
+  let smokeSectionId: string | null = null;
 
-  const actor: EventActor = {
-    userId: 'member-b-smoke-test',
-    sectionId: 'test-section',
+  let actor: EventActor = {
+    userId: '',
+    sectionId: '',
   };
 
   // Temporary permission adapter for local integration testing.
@@ -57,6 +60,30 @@ async function main() {
   const calendarService = new CalendarService(repository);
 
   try {
+    // Create real identity records because Events now has UUID foreign keys.
+    const suffix = randomUUID();
+
+    const userResult = await pool.query<{ user_id: string }>(
+      `INSERT INTO users (name, email, password_hash, user_type)
+       VALUES ($1, $2, $3, 'ADMIN')
+       RETURNING user_id`,
+      ['Events Smoke Test', `events-smoke-${suffix}@example.test`, 'smoke-test-hash']
+    );
+    smokeUserId = userResult.rows[0].user_id;
+
+    const sectionResult = await pool.query<{ section_id: string }>(
+      `INSERT INTO sections (course, label, year)
+       VALUES ($1, $2, $3)
+       RETURNING section_id`,
+      [`SMOKE-${suffix.slice(0, 8)}`, 'TEST', 1]
+    );
+    smokeSectionId = sectionResult.rows[0].section_id;
+
+    actor = {
+      userId: smokeUserId,
+      sectionId: smokeSectionId,
+    };
+
     const start = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
 
@@ -143,12 +170,22 @@ async function main() {
 
     console.info('\nALL DATABASE INTEGRATION CHECKS PASSED.');
   } finally {
-    // Remove only the temporary test event.
+    // Remove only records created by this smoke-test run.
     if (eventId) {
       await pool.query('DELETE FROM events WHERE event_id = $1', [eventId]);
-      console.info('Temporary test event cleaned up.');
     }
 
+    if (smokeUserId) {
+      // Also catches an event created before a later smoke-test failure.
+      await pool.query('DELETE FROM events WHERE created_by = $1', [smokeUserId]);
+      await pool.query('DELETE FROM users WHERE user_id = $1', [smokeUserId]);
+    }
+
+    if (smokeSectionId) {
+      await pool.query('DELETE FROM sections WHERE section_id = $1', [smokeSectionId]);
+    }
+
+    if (eventId) console.info('Temporary smoke-test records cleaned up.');
     await pool.end();
   }
 }
