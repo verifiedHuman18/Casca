@@ -15,7 +15,6 @@
     "pretest": "npm run build --workspace=@senoom/shared",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
-    "db:migrate:events": "tsx scripts/migrate.ts",
     "db:smoke": "tsx scripts/smoke-test-events.ts"
   },
   "dependencies": {

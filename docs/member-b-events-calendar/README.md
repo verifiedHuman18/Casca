@@ -12,7 +12,7 @@ This module implements:
 - `CalendarService` and `CalendarFilter`.
 - `EventRepository` and PostgreSQL implementation `PgEventRepository`.
 - Express controllers and routes under `/api`.
-- PostgreSQL migration at `backend/sql/001_create_events.sql`.
+- PostgreSQL migration at `backend/src/db/migrations/003_events_schema.sql`.
 - `EventPermissionGateway` and an adapter to the repository's existing `PermissionService`.
 
 The existing `backend/src/index.ts` is preserved. `backend/src/server.ts` exports an application factory; it does not replace the existing entry point.
