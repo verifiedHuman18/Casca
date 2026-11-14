@@ -1,12 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PgEventRepository } from '../../src/events/repositories/PgEventRepository';
 import type { CalendarQuery } from '../../src/events/repositories/EventRepository';
-import { createTestPool, hasTestDb } from './testDb';
+import { createTestPool, hasTestDb, prepareDatabase } from './testDb';
 
 type SeedEvent = {
   type: 'CAMPUS' | 'CLUB' | 'SECTION';
@@ -21,6 +19,14 @@ type SeedEvent = {
 describe.skipIf(!hasTestDb)('PgEventRepository calendar query', () => {
   let pool: Pool;
   let repository: PgEventRepository;
+  // Real rows, because the events tables have foreign keys to users, clubs and sections.
+  let creatorId: string;
+  let publicClub: string;
+  let memberClub: string;
+  let hiddenClub: string;
+  let sectionA: string;
+  let sectionB: string;
+  let sectionC: string;
 
   const window: CalendarQuery = {
     from: new Date('2026-12-01T10:00:00Z'),
@@ -48,7 +54,7 @@ describe.skipIf(!hasTestDb)('PgEventRepository calendar query', () => {
         'Test auditorium',
         input.start,
         input.end,
-        'integration-test-user',
+        creatorId,
         input.status ?? 'ACTIVE',
         input.clubId ?? null,
         input.clubVisibility ?? null,
@@ -74,10 +80,42 @@ describe.skipIf(!hasTestDb)('PgEventRepository calendar query', () => {
       throw new Error(`Refusing to run destructive tests against "${database.rows[0]?.name}".`);
     }
 
-    // Temporary setup using the existing Events SQL file.
-    // Issue #11 will move this schema into the tracked migration runner.
-    const schemaPath = path.resolve(__dirname, '../../sql/001_create_events.sql');
-    await pool.query(readFileSync(schemaPath, 'utf8'));
+    // The events tables come from the tracked migrations (003_events_schema.sql).
+    await prepareDatabase(pool);
+
+    creatorId = randomUUID();
+    await pool.query(
+      `INSERT INTO users (user_id, name, email, password_hash, user_type)
+       VALUES ($1, 'Calendar Test', $2, 'hash', 'ADMIN')`,
+      [creatorId, `calendar-${creatorId}@example.test`]
+    );
+    const insertClub = async (): Promise<string> => {
+      const id = randomUUID();
+      await pool.query('INSERT INTO clubs (club_id, name, description) VALUES ($1, $2, $3)', [
+        id,
+        `Calendar Club ${id}`,
+        '',
+      ]);
+      return id;
+    };
+    const insertSection = async (): Promise<string> => {
+      const id = randomUUID();
+      await pool.query(
+        'INSERT INTO sections (section_id, course, label, year) VALUES ($1, $2, $3, $4)',
+        [id, `CAL-${id}`, 'TEST', 1]
+      );
+      return id;
+    };
+    [publicClub, memberClub, hiddenClub] = [
+      await insertClub(),
+      await insertClub(),
+      await insertClub(),
+    ];
+    [sectionA, sectionB, sectionC] = [
+      await insertSection(),
+      await insertSection(),
+      await insertSection(),
+    ];
 
     repository = new PgEventRepository(pool);
   });
@@ -87,6 +125,16 @@ describe.skipIf(!hasTestDb)('PgEventRepository calendar query', () => {
   });
 
   afterAll(async () => {
+    if (pool) {
+      await pool.query('TRUNCATE TABLE event_sections, events CASCADE');
+      await pool.query('DELETE FROM users WHERE user_id = $1', [creatorId]);
+      await pool.query('DELETE FROM clubs WHERE club_id = ANY($1::uuid[])', [
+        [publicClub, memberClub, hiddenClub],
+      ]);
+      await pool.query('DELETE FROM sections WHERE section_id = ANY($1::uuid[])', [
+        [sectionA, sectionB, sectionC],
+      ]);
+    }
     await pool?.end();
   });
 
@@ -139,54 +187,64 @@ describe.skipIf(!hasTestDb)('PgEventRepository calendar query', () => {
       end: '2026-12-01T10:50:00Z',
     });
 
-    const publicClub = await seedEvent({
+    const publicClubEvent = await seedEvent({
       type: 'CLUB',
       start: '2026-12-01T10:10:00Z',
       end: '2026-12-01T10:50:00Z',
-      clubId: 'public-club',
+      clubId: publicClub,
       clubVisibility: 'PUBLIC',
     });
 
-    const memberClub = await seedEvent({
+    const memberClubEvent = await seedEvent({
       type: 'CLUB',
       start: '2026-12-01T10:10:00Z',
       end: '2026-12-01T10:50:00Z',
-      clubId: 'member-club',
+      clubId: memberClub,
       clubVisibility: 'MEMBERS_ONLY',
     });
 
-    const hiddenClub = await seedEvent({
+    const hiddenClubEvent = await seedEvent({
       type: 'CLUB',
       start: '2026-12-01T10:10:00Z',
       end: '2026-12-01T10:50:00Z',
-      clubId: 'hidden-club',
+      clubId: hiddenClub,
       clubVisibility: 'MEMBERS_ONLY',
     });
 
     const events = await repository.findForCalendar({
       ...window,
-      clubMembershipIds: ['member-club'],
+      clubMembershipIds: [memberClub],
     });
 
     const ids = events.map(event => event.id);
 
     expect(ids).toContain(campus);
-    expect(ids).toContain(publicClub);
-    expect(ids).toContain(memberClub);
-    expect(ids).not.toContain(hiddenClub);
+    expect(ids).toContain(publicClubEvent);
+    expect(ids).toContain(memberClubEvent);
+    expect(ids).not.toContain(hiddenClubEvent);
 
     // Explicit club filters affect club events, not campus events.
     const filtered = await repository.findForCalendar({
       ...window,
-      clubIds: ['public-club'],
-      clubMembershipIds: ['member-club'],
+      clubIds: [publicClub],
+      clubMembershipIds: [memberClub],
     });
 
     const filteredIds = filtered.map(event => event.id);
 
     expect(filteredIds).toContain(campus);
-    expect(filteredIds).toContain(publicClub);
-    expect(filteredIds).not.toContain(memberClub);
+    expect(filteredIds).toContain(publicClubEvent);
+    expect(filteredIds).not.toContain(memberClubEvent);
+
+    // Ids that are not UUIDs match nothing and must not break the query.
+    const invalid = await repository.findForCalendar({
+      ...window,
+      clubIds: ['not-a-uuid'],
+      sectionIds: ['also-not-a-uuid'],
+    });
+    const invalidIds = invalid.map(event => event.id);
+    expect(invalidIds).toContain(campus);
+    expect(invalidIds).not.toContain(publicClubEvent);
   });
 
   it('hydrates every target section in one database query', async () => {
@@ -194,14 +252,14 @@ describe.skipIf(!hasTestDb)('PgEventRepository calendar query', () => {
       type: 'SECTION',
       start: '2026-12-01T10:10:00Z',
       end: '2026-12-01T10:50:00Z',
-      sectionIds: ['IT-A', 'IT-B'],
+      sectionIds: [sectionA, sectionB],
     });
 
     const notMatching = await seedEvent({
       type: 'SECTION',
       start: '2026-12-01T10:10:00Z',
       end: '2026-12-01T10:50:00Z',
-      sectionIds: ['IT-C'],
+      sectionIds: [sectionC],
     });
 
     const querySpy = vi.spyOn(pool, 'query');
@@ -209,14 +267,14 @@ describe.skipIf(!hasTestDb)('PgEventRepository calendar query', () => {
     try {
       const events = await repository.findForCalendar({
         ...window,
-        sectionIds: ['IT-A'],
+        sectionIds: [sectionA],
       });
 
       expect(events).toHaveLength(1);
       expect(events[0].id).toBe(matching);
-      expect(events[0].toJSON()).toMatchObject({
-        targetSectionIds: ['IT-A', 'IT-B'],
-      });
+      const targets = events[0].toJSON().targetSectionIds ?? [];
+      expect(targets).toHaveLength(2);
+      expect(targets).toEqual(expect.arrayContaining([sectionA, sectionB]));
       expect(events.map(event => event.id)).not.toContain(notMatching);
 
       // The calendar fetch and section hydration happen in one SQL query.

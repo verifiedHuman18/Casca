@@ -56,7 +56,8 @@ export function makeRegistryKit() {
   });
 
   const sections = new InMemorySectionRepository([section, section2]);
-  const students = new InMemoryStudentRepository([student]);
+  const roleAssignments = new InMemoryRoleAssignmentRepository();
+  const students = new InMemoryStudentRepository([student], roleAssignments);
   // The club must carry its assignments, as the Postgres repository does.
   const assignments = [assign(secretary, { club }, null, STUDENT_ID)];
   const clubWithAssignments = new Club(CLUB_ID, club.name, club.description, assignments);
@@ -69,8 +70,6 @@ export function makeRegistryKit() {
   ]);
   const positions = new InMemoryPositionRepository([secretary, cr, festHead]);
   const audit = new RecordingAudit();
-
-  const roleAssignments = new InMemoryRoleAssignmentRepository();
   const registry = new RegistryService({ sections, clubs, positions, students, audit });
   const roles = new RoleService({
     assignments: roleAssignments,
