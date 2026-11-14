@@ -24,6 +24,13 @@ type DbRow = {
   target_section_ids?: string[];
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Ids are UUID columns, so a value that is not a UUID can never match and must not reach SQL. */
+function onlyUuids(ids: string[]): string[] {
+  return ids.filter(id => UUID.test(id));
+}
+
 export class PgEventRepository implements EventRepository {
   constructor(private readonly pool: Pool) {}
 
@@ -37,6 +44,8 @@ export class PgEventRepository implements EventRepository {
       );
       targetSectionIds = result.rows.map(r => r.section_id);
     }
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
     const props: EventProps = {
       id: row.event_id,
       title: row.title,
@@ -172,39 +181,46 @@ export class PgEventRepository implements EventRepository {
   async findForCalendar(query: CalendarQuery): Promise<Event[]> {
     return this.rows(
       `SELECT
-         e.*,
-         COALESCE(
-           array_agg(es.section_id ORDER BY es.section_id)
-             FILTER (WHERE es.section_id IS NOT NULL),
-           ARRAY[]::text[]
-         ) AS target_section_ids
-       FROM events e
-       LEFT JOIN event_sections es ON es.event_id = e.event_id
-       WHERE e.status = 'ACTIVE'
-         AND e.start_time >= $1
-         AND e.end_time <= $2
-         AND (
-           e.event_type <> 'CLUB'
-           OR cardinality($3::text[]) = 0
-           OR e.club_id = ANY($3::text[])
+       e.*,
+       COALESCE(
+         array_agg(es.section_id ORDER BY es.section_id)
+           FILTER (WHERE es.section_id IS NOT NULL),
+         ARRAY[]::uuid[]
+       ) AS target_section_ids
+     FROM events e
+     LEFT JOIN event_sections es ON es.event_id = e.event_id
+     WHERE e.status = 'ACTIVE'
+       AND e.start_time >= $1
+       AND e.end_time <= $2
+       AND (
+         e.event_type <> 'CLUB'
+         OR $6::boolean
+         OR e.club_id = ANY($3::uuid[])
+       )
+       AND (
+         e.event_type <> 'CLUB'
+         OR e.club_visibility = 'PUBLIC'
+         OR e.club_id = ANY($4::uuid[])
+       )
+       AND (
+         e.event_type <> 'SECTION'
+         OR EXISTS (
+           SELECT 1
+           FROM event_sections visible_section
+           WHERE visible_section.event_id = e.event_id
+             AND visible_section.section_id = ANY($5::uuid[])
          )
-         AND (
-           e.event_type <> 'CLUB'
-           OR e.club_visibility = 'PUBLIC'
-           OR e.club_id = ANY($4::text[])
-         )
-         AND (
-           e.event_type <> 'SECTION'
-           OR EXISTS (
-             SELECT 1
-             FROM event_sections visible_section
-             WHERE visible_section.event_id = e.event_id
-               AND visible_section.section_id = ANY($5::text[])
-           )
-         )
-       GROUP BY e.event_id
-       ORDER BY e.start_time ASC`,
-      [query.from, query.to, query.clubIds, query.clubMembershipIds, query.sectionIds]
+       )
+     GROUP BY e.event_id
+     ORDER BY e.start_time ASC`,
+      [
+        query.from,
+        query.to,
+        onlyUuids(query.clubIds),
+        onlyUuids(query.clubMembershipIds),
+        onlyUuids(query.sectionIds),
+        query.clubIds.length === 0,
+      ]
     );
   }
   async findPendingApproval(): Promise<Event[]> {
