@@ -452,10 +452,18 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await logoutApi();
-    setUser(INITIAL_MOCK_USER);
     setIsSettingsOpen(false);
-    Alert.alert('Signed Out', 'You have been signed out.');
+    setIsApprovalQueueOpen(false);
+    setIsMyRequestsOpen(false);
+    setIsCreateOpen(false);
+    setSelectedEvent(null);
+    if (viewMode === 'event') {
+      setViewMode('day');
+    }
+    setUser(INITIAL_MOCK_USER);
+    setIsAuthScreenOpen(true);
+    await logoutApi();
+    fetchCalendarEvents().then(setEvents);
   };
 
   const calendarDays = useMemo(() => {
@@ -1314,9 +1322,7 @@ export default function App() {
               <Feather name="log-out" size={18} color="#DC2626" style={{ marginRight: 12 }} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.settingsActionTitle, { color: '#DC2626' }]}>Sign Out</Text>
-                <Text style={styles.settingsActionSub}>
-                  Reset session to default student preview
-                </Text>
+                <Text style={styles.settingsActionSub}>Log out and return to the login screen</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -1511,6 +1517,7 @@ export default function App() {
         onRequestClose={() => setIsAuthScreenOpen(false)}
       >
         <AuthScreen
+          key={isAuthScreenOpen ? 'auth-open' : 'auth-closed'}
           colors={c}
           onLoginSuccess={handleLoginSuccess}
           onGuestPreview={() => setIsAuthScreenOpen(false)}
