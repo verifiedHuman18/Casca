@@ -1,11 +1,45 @@
 import { ScopeType, EventStatus, ClubVisibility, UIEventItem, UserSession } from '../types';
 import { UserType, type AuthResponse, type AuthUser, type SectionDto } from '@senoom/shared';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const CANDIDATE_BASE_URLS: string[] = [
+  process.env.EXPO_PUBLIC_API_URL,
+  'http://localhost:3000',
+  'http://10.178.29.36:3000',
+  'http://10.0.2.2:3000',
+].filter((url): url is string => Boolean(url));
+
+let resolvedBaseUrl: string = CANDIDATE_BASE_URLS[0] || 'http://localhost:3000';
+
+export function getApiBaseUrl(): string {
+  return resolvedBaseUrl;
+}
 
 const isTestEnv =
   typeof process !== 'undefined' &&
   (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true');
+
+export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  if (isTestEnv) {
+    return fetch(`${resolvedBaseUrl}${path}`, init);
+  }
+
+  try {
+    const res = await fetch(`${resolvedBaseUrl}${path}`, init);
+    return res;
+  } catch (err: unknown) {
+    for (const candidate of CANDIDATE_BASE_URLS) {
+      if (candidate === resolvedBaseUrl) continue;
+      try {
+        const res = await fetch(`${candidate}${path}`, init);
+        resolvedBaseUrl = candidate;
+        return res;
+      } catch {
+        // try next candidate
+      }
+    }
+    throw err;
+  }
+}
 
 let authToken: string | null = null;
 
@@ -237,14 +271,14 @@ export async function fetchCalendarEvents(filter?: FetchCalendarFilter): Promise
     }
 
     const qs = params.toString();
-    const url = `${API_BASE_URL}/api/calendar${qs ? `?${qs}` : ''}`;
+    const endpoint = `/api/calendar${qs ? `?${qs}` : ''}`;
 
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (authToken) {
       headers['Authorization'] = `Bearer ${authToken}`;
     }
 
-    const res = await fetch(url, { headers });
+    const res = await apiFetch(endpoint, { headers });
     if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
 
     const data = await res.json();
@@ -282,9 +316,7 @@ export async function createNewEvent(
   try {
     if (authToken) {
       const isCampusRequest = event.scope === ScopeType.CAMPUS;
-      const url = isCampusRequest
-        ? `${API_BASE_URL}/api/events/campus-requests`
-        : `${API_BASE_URL}/api/events`;
+      const endpoint = isCampusRequest ? '/api/events/campus-requests' : '/api/events';
 
       const payload: CreateEventPayload = {
         title: event.title,
@@ -296,7 +328,7 @@ export async function createNewEvent(
         targetSectionIds: event.targetSections,
       };
 
-      const res = await fetch(url, {
+      const res = await apiFetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -328,39 +360,7 @@ export async function loginApi(
   identifier: { enrollmentNo: string } | { email: string },
   password: string
 ): Promise<AuthResponse> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...identifier, password }),
-    });
-
-    if (res.ok) {
-      const data: AuthResponse = await res.json();
-      setAuthToken(data.token);
-      return data;
-    } else {
-      const errorBody = await res.json().catch(() => ({}));
-      throw new Error(errorBody?.error?.message || `Login failed (${res.status})`);
-    }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : '';
-    if (
-      msg &&
-      !msg.includes('fetch failed') &&
-      !msg.includes('ECONNREFUSED') &&
-      !msg.includes('Network request failed')
-    ) {
-      throw err;
-    }
-
-    if (!isTestEnv) {
-      throw new Error(
-        `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running.`
-      );
-    }
-
-    // Offline / Standalone Mock Fallback (for unit tests only)
+  if (isTestEnv && !process.env.TEST_REAL_BACKEND) {
     const isAdmin = 'email' in identifier && identifier.email.includes('admin');
     const mockUser: AuthUser = isAdmin
       ? {
@@ -415,12 +415,44 @@ export async function loginApi(
     setAuthToken(mockResp.token);
     return mockResp;
   }
+
+  try {
+    const res = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...identifier, password }),
+    });
+
+    if (res.ok) {
+      const data: AuthResponse = await res.json();
+      setAuthToken(data.token);
+      return data;
+    } else {
+      const errorBody = await res.json().catch(() => ({}));
+      throw new Error(errorBody?.error?.message || `Login failed (${res.status})`);
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '';
+    if (
+      msg &&
+      !msg.includes('fetch failed') &&
+      !msg.includes('ECONNREFUSED') &&
+      !msg.includes('Network request failed') &&
+      !msg.includes('Failed to fetch')
+    ) {
+      throw err;
+    }
+
+    throw new Error(
+      `Cannot connect to server at ${resolvedBaseUrl}. Please ensure the backend is running.`
+    );
+  }
 }
 
 export async function logoutApi(): Promise<void> {
   if (authToken) {
     try {
-      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      await apiFetch('/api/auth/logout', {
         method: 'POST',
         headers: { Authorization: `Bearer ${authToken}` },
       });
@@ -437,8 +469,27 @@ export async function signUpStudentApi(input: {
   sectionId: string;
   password: string;
 }): Promise<AuthResponse> {
+  if (isTestEnv && !process.env.TEST_REAL_BACKEND) {
+    const mockResp: AuthResponse = {
+      token: `mock-jwt-token-${Date.now()}`,
+      user: {
+        userId: `usr-${Date.now()}`,
+        name: input.name,
+        type: UserType.STUDENT,
+        enrollmentNo: input.enrollmentNo,
+        course: input.sectionId.split('-')[0] || 'IT',
+        sectionId: input.sectionId.split('-')[1] || 'A',
+        year: 1,
+        assignments: [],
+        clubIds: [],
+      },
+    };
+    setAuthToken(mockResp.token);
+    return mockResp;
+  }
+
   try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+    const res = await apiFetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
@@ -458,40 +509,21 @@ export async function signUpStudentApi(input: {
       msg &&
       !msg.includes('fetch failed') &&
       !msg.includes('ECONNREFUSED') &&
-      !msg.includes('Network request failed')
+      !msg.includes('Network request failed') &&
+      !msg.includes('Failed to fetch')
     ) {
       throw err;
     }
 
-    if (!isTestEnv) {
-      throw new Error(
-        `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running.`
-      );
-    }
-
-    // Offline / Standalone Mock Fallback (for unit tests only)
-    const mockResp: AuthResponse = {
-      token: `mock-jwt-token-${Date.now()}`,
-      user: {
-        userId: `usr-${Date.now()}`,
-        name: input.name,
-        type: UserType.STUDENT,
-        enrollmentNo: input.enrollmentNo,
-        course: input.sectionId.split('-')[0] || 'IT',
-        sectionId: input.sectionId.split('-')[1] || 'A',
-        year: 1,
-        assignments: [],
-        clubIds: [],
-      },
-    };
-    setAuthToken(mockResp.token);
-    return mockResp;
+    throw new Error(
+      `Cannot connect to server at ${resolvedBaseUrl}. Please ensure the backend is running.`
+    );
   }
 }
 
 export async function fetchSectionsApi(): Promise<SectionDto[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/sections`);
+    const res = await apiFetch('/api/sections');
     if (res.ok) {
       return (await res.json()) as SectionDto[];
     }
@@ -509,7 +541,7 @@ export async function fetchSectionsApi(): Promise<SectionDto[]> {
       msg.includes('Failed to fetch')
     ) {
       throw new Error(
-        `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running.`
+        `Cannot connect to server at ${resolvedBaseUrl}. Please ensure the backend is running.`
       );
     }
     throw err;
@@ -574,7 +606,7 @@ export const INITIAL_MOCK_MY_REQUESTS: UIEventItem[] = [
 export async function fetchApprovalQueue(): Promise<UIEventItem[]> {
   try {
     if (authToken) {
-      const res = await fetch(`${API_BASE_URL}/api/events/approval-queue`, {
+      const res = await apiFetch('/api/events/approval-queue', {
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${authToken}`,
@@ -598,7 +630,7 @@ export async function fetchApprovalQueue(): Promise<UIEventItem[]> {
 
 export async function approveEventApi(eventId: string): Promise<void> {
   if (authToken) {
-    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/approve`, {
+    const res = await apiFetch(`/api/events/${eventId}/approve`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -614,7 +646,7 @@ export async function approveEventApi(eventId: string): Promise<void> {
 
 export async function rejectEventApi(eventId: string, reason: string): Promise<void> {
   if (authToken) {
-    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/reject`, {
+    const res = await apiFetch(`/api/events/${eventId}/reject`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -634,7 +666,7 @@ export async function rejectEventApi(eventId: string, reason: string): Promise<v
 export async function fetchMyRequests(): Promise<UIEventItem[]> {
   try {
     if (authToken) {
-      const res = await fetch(`${API_BASE_URL}/api/events/my-requests`, {
+      const res = await apiFetch('/api/events/my-requests', {
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${authToken}`,
@@ -661,7 +693,7 @@ export async function resubmitEventApi(
   payload: Partial<CreateEventPayload>
 ): Promise<UIEventItem> {
   if (authToken) {
-    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/resubmit`, {
+    const res = await apiFetch(`/api/events/${eventId}/resubmit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -696,7 +728,7 @@ export async function updateEventApi(
   updates: Partial<CreateEventPayload>
 ): Promise<UIEventItem> {
   if (authToken) {
-    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}`, {
+    const res = await apiFetch(`/api/events/${eventId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -731,7 +763,7 @@ export async function rescheduleEventApi(
   endTime: string
 ): Promise<UIEventItem> {
   if (authToken) {
-    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/reschedule`, {
+    const res = await apiFetch(`/api/events/${eventId}/reschedule`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -762,7 +794,7 @@ export async function rescheduleEventApi(
 
 export async function cancelEventApi(eventId: string): Promise<void> {
   if (authToken) {
-    const res = await fetch(`${API_BASE_URL}/api/events/${eventId}/cancel`, {
+    const res = await apiFetch(`/api/events/${eventId}/cancel`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
