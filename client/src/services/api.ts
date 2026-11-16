@@ -495,10 +495,25 @@ export async function fetchSectionsApi(): Promise<SectionDto[]> {
     if (res.ok) {
       return (await res.json()) as SectionDto[];
     }
-  } catch {
-    // Return empty if backend is not reachable
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody?.error?.message || `Failed to fetch sections (${res.status})`);
+  } catch (err: unknown) {
+    if (isTestEnv) {
+      return [];
+    }
+    const msg = err instanceof Error ? err.message : '';
+    if (
+      msg.includes('fetch failed') ||
+      msg.includes('ECONNREFUSED') ||
+      msg.includes('Network request failed') ||
+      msg.includes('Failed to fetch')
+    ) {
+      throw new Error(
+        `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running.`
+      );
+    }
+    throw err;
   }
-  return [];
 }
 
 // ─── Approval Queue & My Requests Mock Fallbacks ──────────────────────────────

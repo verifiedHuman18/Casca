@@ -117,18 +117,19 @@ export function AuthScreen({ colors, onLoginSuccess, onGuestPreview }: AuthScree
 
     setLoading(true);
     try {
-      let matched = dbSections.find(
+      let sections = dbSections;
+      if (!sections || sections.length === 0) {
+        sections = await fetchSectionsApi();
+        setDbSections(sections);
+      }
+
+      const matched = sections.find(
         s => s.course === selectedCourse && s.label === selectedSection
       );
-      if (!matched) {
-        const fresh = await fetchSectionsApi();
-        setDbSections(fresh);
-        matched = fresh.find(s => s.course === selectedCourse && s.label === selectedSection);
-      }
 
       if (!matched) {
         setErrorMessage(
-          'Cannot find corresponding section in database. Please ensure the backend server is running.'
+          `Section ${selectedCourse}-${selectedSection} was not found in the database.`
         );
         setLoading(false);
         return;

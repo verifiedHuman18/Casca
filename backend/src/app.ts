@@ -42,7 +42,8 @@ export function createApp(deps: AppDeps): Express {
   if (deps.trustProxy) app.set('trust proxy', 1);
 
   app.use(helmet());
-  app.use(cors({ origin: deps.corsOrigins ?? [] }));
+  const corsOrigin = deps.corsOrigins && deps.corsOrigins.length > 0 ? deps.corsOrigins : true;
+  app.use(cors({ origin: corsOrigin, credentials: true }));
   app.use(express.json({ limit: '10kb' }));
 
   const requireAuth = createRequireAuth(deps.authService);
