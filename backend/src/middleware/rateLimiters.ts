@@ -1,4 +1,4 @@
-import type { ApiErrorBody } from '@senoom/shared';
+import type { ApiErrorBody } from '@casca/shared';
 import type { Request, RequestHandler } from 'express';
 import { rateLimit } from 'express-rate-limit';
 

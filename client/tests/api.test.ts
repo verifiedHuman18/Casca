@@ -18,7 +18,7 @@ import {
   logoutApi,
 } from '../src/services/api';
 import { ScopeType, EventStatus } from '../src/types';
-import { UserType, type AuthUser } from '@senoom/shared';
+import { UserType, type AuthUser } from '@casca/shared';
 
 describe('Client API Service & Offline Mocks (client/src/services/api.ts)', () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
 {
-  "name": "@senoom/shared",
+  "name": "@casca/shared",
   "version": "0.1.0",
   "private": true,
   "main": "dist/index.js",

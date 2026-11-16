@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
-import { UserType } from '@senoom/shared';
-import type { AuthUser } from '@senoom/shared';
+import { UserType } from '@casca/shared';
+import type { AuthUser } from '@casca/shared';
 import { DomainError } from '../../domain/DomainError';
 import type { EventActor } from '../domain/event.types';
 

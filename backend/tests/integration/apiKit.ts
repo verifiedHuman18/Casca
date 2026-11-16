@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { Permission, ScopeType } from '@senoom/shared';
+import { Permission, ScopeType } from '@casca/shared';
 import type { Pool } from 'pg';
 import request from 'supertest';
 import { createApp } from '../../src/app';

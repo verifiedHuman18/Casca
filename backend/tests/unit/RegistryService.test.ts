@@ -1,4 +1,4 @@
-import { Permission, ScopeType, UserType, type AuthUser } from '@senoom/shared';
+import { Permission, ScopeType, UserType, type AuthUser } from '@casca/shared';
 import { describe, expect, it } from 'vitest';
 import { CLUB_ID, makeRegistryKit, POSITION_ID, SECTION_2_ID, STUDENT_ID } from './registryKit';
 

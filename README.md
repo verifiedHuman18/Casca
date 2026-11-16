@@ -151,7 +151,7 @@ Casca is built according to a strict **4-layer Clean Architecture** with pure Ob
 ## 📂 Repository Structure
 
 ```
-SEnOOM/
+Casca/
 ├── backend/                  # Node.js + Express REST API (TypeScript)
 │   ├── src/
 │   │   ├── config/           # Database and auth configuration
@@ -227,10 +227,10 @@ npm install
 
 ### 2. Build Shared Domain Contracts
 
-The `@senoom/shared` workspace must be built first because both the backend and client import its domain models and enums:
+The `@casca/shared` workspace must be built first because both the backend and client import its domain models and enums:
 
 ```bash
-npm run build --workspace=@senoom/shared
+npm run build --workspace=@casca/shared
 ```
 
 ---
@@ -255,16 +255,16 @@ npm run build --workspace=@senoom/shared
 
    ```bash
    # Run schema migrations
-   npm run db:migrate --workspace=@senoom/backend
+   npm run db:migrate --workspace=@casca/backend
 
    # Seed initial academic sections, clubs, positions, and sample users
-   npm run db:seed --workspace=@senoom/backend
+   npm run db:seed --workspace=@casca/backend
    ```
 
 3. **Start the Backend Server**:
    ```bash
    # Run with hot-reloading (via tsx watch)
-   npm run dev --workspace=@senoom/backend
+   npm run dev --workspace=@casca/backend
    ```
    The backend API will start on `http://localhost:4000`.
 
@@ -277,11 +277,11 @@ The mobile client is fully offline-resilient: **it works seamlessly with either 
 1. **Start the Expo Metro Bundler**:
 
    ```bash
-   npm run start --workspace=@senoom/client
+   npm run start --workspace=@casca/client
    ```
 
 2. **Launch on Target Platform**:
-   - **Web Browser**: Press `w` in the terminal (or run `npm run web --workspace=@senoom/client`).
+   - **Web Browser**: Press `w` in the terminal (or run `npm run web --workspace=@casca/client`).
    - **Physical Mobile Device**: Install **Expo Go** on Android/iOS, ensure your phone is on the same local Wi-Fi, and scan the terminal QR code.
    - **Android Emulator**: Press `a` in the terminal.
    - **iOS Simulator** _(macOS only)_: Press `i` in the terminal.
@@ -303,8 +303,8 @@ The project maintains 100% green test suites and strict automated quality checks
 npm test
 
 # Run tests in specific workspaces
-npm test --workspace=@senoom/backend   # 96 backend tests
-npm test --workspace=@senoom/client    # 42 client tests
+npm test --workspace=@casca/backend   # 96 backend tests
+npm test --workspace=@casca/client    # 42 client tests
 
 # Run TypeScript strict typecheck across all workspaces
 npm run typecheck
@@ -335,19 +335,19 @@ All commits are inspected by **Husky**, **lint-staged**, and **commitlint**. Com
 
 ## 📋 Available Scripts Reference
 
-| Script                 | Workspace         | Description                                                |
-| :--------------------- | :---------------- | :--------------------------------------------------------- |
-| `npm run build`        | Root              | Builds `@senoom/shared` and all workspace packages         |
-| `npm test`             | Root              | Executes all Vitest test suites across the monorepo        |
-| `npm run typecheck`    | Root              | Runs `tsc --noEmit` across all workspaces                  |
-| `npm run lint`         | Root              | Runs ESLint analysis across all workspaces                 |
-| `npm run format`       | Root              | Formats all code, markdown, and config files with Prettier |
-| `npm run format:check` | Root              | Verifies all files adhere to Prettier styling              |
-| `npm run dev`          | `@senoom/backend` | Starts backend with hot-reloading on port 4000             |
-| `npm run db:migrate`   | `@senoom/backend` | Executes database schema migrations                        |
-| `npm run db:seed`      | `@senoom/backend` | Seeds initial sections, clubs, and sample accounts         |
-| `npm run start`        | `@senoom/client`  | Launches Expo Metro Bundler for React Native               |
-| `npm run web`          | `@senoom/client`  | Launches the client in a desktop web browser               |
+| Script                 | Workspace        | Description                                                |
+| :--------------------- | :--------------- | :--------------------------------------------------------- |
+| `npm run build`        | Root             | Builds `@casca/shared` and all workspace packages          |
+| `npm test`             | Root             | Executes all Vitest test suites across the monorepo        |
+| `npm run typecheck`    | Root             | Runs `tsc --noEmit` across all workspaces                  |
+| `npm run lint`         | Root             | Runs ESLint analysis across all workspaces                 |
+| `npm run format`       | Root             | Formats all code, markdown, and config files with Prettier |
+| `npm run format:check` | Root             | Verifies all files adhere to Prettier styling              |
+| `npm run dev`          | `@casca/backend` | Starts backend with hot-reloading on port 4000             |
+| `npm run db:migrate`   | `@casca/backend` | Executes database schema migrations                        |
+| `npm run db:seed`      | `@casca/backend` | Seeds initial sections, clubs, and sample accounts         |
+| `npm run start`        | `@casca/client`  | Launches Expo Metro Bundler for React Native               |
+| `npm run web`          | `@casca/client`  | Launches the client in a desktop web browser               |
 
 ---
 

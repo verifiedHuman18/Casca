@@ -1,11 +1,4 @@
-import {
-  AuthAssignment,
-  AuthUser,
-  EventRef,
-  Permission,
-  ScopeType,
-  UserType,
-} from '@senoom/shared';
+import { AuthAssignment, AuthUser, EventRef, Permission, ScopeType, UserType } from '@casca/shared';
 
 /** What the implicit campus-scoped Admin position grants (the Admin row of the seed positions). */
 const ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set([

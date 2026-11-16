@@ -1,4 +1,4 @@
-import type { AuthUser, EventRef } from '@senoom/shared';
+import type { AuthUser, EventRef } from '@casca/shared';
 import { PermissionService } from '../../services/PermissionService';
 import { ClubEvent } from '../domain/ClubEvent';
 import { Event } from '../domain/Event';

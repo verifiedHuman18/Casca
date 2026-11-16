@@ -6,7 +6,7 @@ import {
   Permission,
   ScopeType,
   UserType,
-} from '@senoom/shared';
+} from '@casca/shared';
 import { describe, expect, it } from 'vitest';
 import { PermissionService } from '../../src/services/PermissionService';
 

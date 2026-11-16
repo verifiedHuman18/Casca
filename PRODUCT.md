@@ -44,7 +44,7 @@ Unlike generic calendar tools or informal social messaging groups:
 - **Technical Constraints**:
   - React Native / Expo SDK 58 client running on native Android devices (`minSdk: 24`, `targetSdk: 36`).
   - Strict 4-layer architecture: Domain Entities, Repositories, Services, Controllers.
-  - Monorepo structure with `@senoom/shared` contract library enforcing TypeScript strict mode.
+  - Monorepo structure with `@casca/shared` contract library enforcing TypeScript strict mode.
   - Zero direct client database access; all interactions strictly over REST endpoints.
 
 ## Brand Commitments
@@ -59,7 +59,7 @@ Unlike generic calendar tools or informal social messaging groups:
 
 - Native standalone release APK (20 MB) compiled and deployed to physical Samsung Galaxy S24 FE (`SM_S721B`).
 - 50 passed test suites covering domain entities, permission gateways, repository mappers, and PostgreSQL migrations.
-- Working mock dataset in [client/src/services/api.ts](file:///home/humaniac/Projects/SEnOOM/client/src/services/api.ts) verified against UI prototypes.
+- Working mock dataset in [client/src/services/api.ts](file:///home/humaniac/Projects/Casca/client/src/services/api.ts) verified against UI prototypes.
 
 ## Product Principles
 

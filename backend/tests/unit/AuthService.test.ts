@@ -1,4 +1,4 @@
-import { UserType } from '@senoom/shared';
+import { UserType } from '@casca/shared';
 import jwt from 'jsonwebtoken';
 import { describe, expect, it } from 'vitest';
 import { Admin } from '../../src/domain/Admin';

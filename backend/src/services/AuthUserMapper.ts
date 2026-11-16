@@ -1,4 +1,4 @@
-import { AuthAssignment, AuthUser, UserType } from '@senoom/shared';
+import { AuthAssignment, AuthUser, UserType } from '@casca/shared';
 import type { Admin } from '../domain/Admin';
 import type { RoleAssignment } from '../domain/RoleAssignment';
 import type { Student } from '../domain/Student';

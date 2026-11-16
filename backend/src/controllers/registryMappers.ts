@@ -1,4 +1,4 @@
-import type { ClubDto, PositionDto, SectionDto, StudentDto } from '@senoom/shared';
+import type { ClubDto, PositionDto, SectionDto, StudentDto } from '@casca/shared';
 import type { Club } from '../domain/Club';
 import type { Position } from '../domain/Position';
 import type { Section } from '../domain/Section';

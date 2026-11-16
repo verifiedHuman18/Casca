@@ -1,4 +1,4 @@
-import { UserType } from '@senoom/shared';
+import { UserType } from '@casca/shared';
 import { DomainError } from './DomainError';
 import { User, UserProps } from './User';
 

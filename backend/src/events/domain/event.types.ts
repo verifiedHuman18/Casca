@@ -1,4 +1,4 @@
-import type { AuthUser } from '@senoom/shared';
+import type { AuthUser } from '@casca/shared';
 import { ClubVisibility, EventScope, EventStatus } from './event.enums';
 
 export interface EventActor {

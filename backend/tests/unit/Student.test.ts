@@ -1,4 +1,4 @@
-import { Permission, ScopeType } from '@senoom/shared';
+import { Permission, ScopeType } from '@casca/shared';
 import { describe, expect, it } from 'vitest';
 import { assign, clubMember, cr, makeClub, makeSection, makeStudent, secretary } from './factories';
 

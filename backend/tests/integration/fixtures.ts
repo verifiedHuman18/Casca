@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Permission, ScopeType } from '@senoom/shared';
+import type { Permission, ScopeType } from '@casca/shared';
 import type { Pool } from 'pg';
 import { Admin } from '../../src/domain/Admin';
 import { Club } from '../../src/domain/Club';

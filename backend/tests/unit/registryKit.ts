@@ -1,4 +1,4 @@
-import { Permission, ScopeType } from '@senoom/shared';
+import { Permission, ScopeType } from '@casca/shared';
 import { Admin } from '../../src/domain/Admin';
 import { Club } from '../../src/domain/Club';
 import { Position } from '../../src/domain/Position';

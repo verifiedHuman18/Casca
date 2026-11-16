@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Permission, ScopeType, UserType, VALID_SECTIONS_BY_COURSE } from '@senoom/shared';
+import { Permission, ScopeType, UserType, VALID_SECTIONS_BY_COURSE } from '@casca/shared';
 import { requireEnv } from '../config/env';
 import { PasswordHasher } from '../services/PasswordHasher';
 import { pool } from './pool';

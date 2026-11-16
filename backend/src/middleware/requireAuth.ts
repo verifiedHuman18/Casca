@@ -1,4 +1,4 @@
-import type { AuthUser } from '@senoom/shared';
+import type { AuthUser } from '@casca/shared';
 import type { Request, RequestHandler } from 'express';
 import { DomainError } from '../domain/DomainError';
 import type { AuthService } from '../services/AuthService';

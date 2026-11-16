@@ -1,5 +1,5 @@
 import { ScopeType, EventStatus, ClubVisibility, UIEventItem, UserSession } from '../types';
-import { UserType, type AuthResponse, type AuthUser, type SectionDto } from '@senoom/shared';
+import { UserType, type AuthResponse, type AuthUser, type SectionDto } from '@casca/shared';
 
 const CANDIDATE_BASE_URLS: string[] = [
   process.env.EXPO_PUBLIC_API_URL,

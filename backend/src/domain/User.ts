@@ -1,4 +1,4 @@
-import { UserType } from '@senoom/shared';
+import { UserType } from '@casca/shared';
 import { DomainError } from './DomainError';
 
 /** What a User needs from a hasher. PasswordHasher satisfies this. */

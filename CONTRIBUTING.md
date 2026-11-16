@@ -88,7 +88,7 @@ Before any code is committed or merged, quality gates are enforced automatically
 npm install
 
 # 2. Build shared domain definitions
-npm run build --workspace=@senoom/shared
+npm run build --workspace=@casca/shared
 
 # 3. Check formatting across entire codebase
 npm run format:check

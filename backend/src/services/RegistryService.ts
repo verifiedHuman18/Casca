@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AuthUser, ClubDetailDto, ClubMemberDto, Permission, ScopeType } from '@senoom/shared';
+import type { AuthUser, ClubDetailDto, ClubMemberDto, Permission, ScopeType } from '@casca/shared';
 import { Club } from '../domain/Club';
 import { DomainError } from '../domain/DomainError';
 import { Position } from '../domain/Position';

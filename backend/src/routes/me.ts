@@ -1,4 +1,4 @@
-import type { MeResponse } from '@senoom/shared';
+import type { MeResponse } from '@casca/shared';
 import { RequestHandler, Router } from 'express';
 import { currentUser } from '../middleware/requireAuth';
 import type { PermissionService } from '../services/PermissionService';

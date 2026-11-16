@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { AuthResponse, AuthUser, UserType } from '@senoom/shared';
+import { AuthResponse, AuthUser, UserType } from '@casca/shared';
 import jwt from 'jsonwebtoken';
 import type { AuthConfig } from '../config/authConfig';
 import type { Admin } from '../domain/Admin';

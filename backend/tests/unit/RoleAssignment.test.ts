@@ -1,4 +1,4 @@
-import { ScopeType } from '@senoom/shared';
+import { ScopeType } from '@casca/shared';
 import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/domain/DomainError';
 import { RoleAssignment } from '../../src/domain/RoleAssignment';

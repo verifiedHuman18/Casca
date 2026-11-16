@@ -1,5 +1,5 @@
 {
-  "name": "senoom-campus-platform",
+  "name": "casca",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "prepare": "husky",
-    "build": "npm run build --workspace=@senoom/shared && npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=@casca/shared && npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

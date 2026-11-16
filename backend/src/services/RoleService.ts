@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AuthUser } from '@senoom/shared';
+import type { AuthUser } from '@casca/shared';
 import { DomainError } from '../domain/DomainError';
 import { RoleAssignment } from '../domain/RoleAssignment';
 import type { ClubRepository } from '../repositories/ClubRepository';

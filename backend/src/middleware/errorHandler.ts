@@ -1,4 +1,4 @@
-import type { ApiErrorBody } from '@senoom/shared';
+import type { ApiErrorBody } from '@casca/shared';
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { DomainError } from '../domain/DomainError';

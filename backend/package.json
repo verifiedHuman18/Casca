@@ -1,5 +1,5 @@
 {
-  "name": "@senoom/backend",
+  "name": "@casca/backend",
   "version": "0.1.0",
   "private": true,
   "main": "dist/index.js",
@@ -10,15 +10,15 @@
     "test:watch": "vitest",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "prebuild": "npm run build --workspace=@senoom/shared",
-    "pretypecheck": "npm run build --workspace=@senoom/shared",
-    "pretest": "npm run build --workspace=@senoom/shared",
+    "prebuild": "npm run build --workspace=@casca/shared",
+    "pretypecheck": "npm run build --workspace=@casca/shared",
+    "pretest": "npm run build --workspace=@casca/shared",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:smoke": "tsx scripts/smoke-test-events.ts"
   },
   "dependencies": {
-    "@senoom/shared": "*",
+    "@casca/shared": "*",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^18.0.10",

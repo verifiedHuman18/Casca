@@ -20,7 +20,7 @@ import {
   VALID_SECTIONS_BY_COURSE,
   type CourseName,
   type SectionDto,
-} from '@senoom/shared';
+} from '@casca/shared';
 
 export interface AuthScreenProps {
   colors: ColorTokens;

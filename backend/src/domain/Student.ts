@@ -1,4 +1,4 @@
-import { Permission, ScopeTarget, UserType } from '@senoom/shared';
+import { Permission, ScopeTarget, UserType } from '@casca/shared';
 import { Club } from './Club';
 import { DomainError } from './DomainError';
 import { Position } from './Position';

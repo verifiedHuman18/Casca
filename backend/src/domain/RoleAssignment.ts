@@ -1,4 +1,4 @@
-import { ScopeTarget, ScopeType } from '@senoom/shared';
+import { ScopeTarget, ScopeType } from '@casca/shared';
 import { Club } from './Club';
 import { DomainError } from './DomainError';
 import { Position } from './Position';

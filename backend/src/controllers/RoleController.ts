@@ -1,4 +1,4 @@
-import type { RoleAssignmentDto } from '@senoom/shared';
+import type { RoleAssignmentDto } from '@casca/shared';
 import type { Request, Response } from 'express';
 import type { RoleAssignment } from '../domain/RoleAssignment';
 import { currentUser } from '../middleware/requireAuth';

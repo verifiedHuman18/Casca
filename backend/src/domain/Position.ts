@@ -1,4 +1,4 @@
-import { Permission, ScopeType } from '@senoom/shared';
+import { Permission, ScopeType } from '@casca/shared';
 import { DomainError } from './DomainError';
 
 const ALLOWED: Record<ScopeType, ReadonlySet<Permission>> = {

@@ -6,7 +6,7 @@ import {
   CourseName,
   VALID_COURSES,
   VALID_SECTIONS_BY_COURSE,
-} from '@senoom/shared';
+} from '@casca/shared';
 
 export {
   ScopeType,

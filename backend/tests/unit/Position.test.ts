@@ -1,5 +1,5 @@
 // Position.test.ts
-import { Permission, ScopeType } from '@senoom/shared';
+import { Permission, ScopeType } from '@casca/shared';
 import { describe, expect, it } from 'vitest';
 import { Position } from '../../src/domain/Position';
 

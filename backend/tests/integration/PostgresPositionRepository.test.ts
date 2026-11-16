@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Permission, ScopeType } from '@senoom/shared';
+import { Permission, ScopeType } from '@casca/shared';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/domain/DomainError';

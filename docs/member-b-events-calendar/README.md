@@ -85,10 +85,10 @@ Run from the repository root:
 
 ```bash
 npm run typecheck
-npm run build --workspace=@senoom/backend
-npm test --workspace=@senoom/backend
-npm run db:migrate --workspace=@senoom/backend
-npm run db:smoke --workspace=@senoom/backend
+npm run build --workspace=@casca/backend
+npm test --workspace=@casca/backend
+npm run db:migrate --workspace=@casca/backend
+npm run db:smoke --workspace=@casca/backend
 ```
 
 Migration and smoke tests require a valid local `backend/.env`. Do not commit `.env`; use `backend/.env.example` as the configuration template.

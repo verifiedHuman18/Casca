@@ -1,4 +1,4 @@
-import { Permission, ScopeType } from '@senoom/shared';
+import { Permission, ScopeType } from '@casca/shared';
 import { z } from 'zod';
 import { idSchema } from './common';
 
