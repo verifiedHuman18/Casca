@@ -40,6 +40,10 @@ export abstract class User {
     return this._email;
   }
 
+  protected get currentPasswordHash(): string {
+    return this._passwordHash;
+  }
+
   rename(name: string): void {
     this._name = User.cleanName(name);
   }

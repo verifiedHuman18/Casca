@@ -51,6 +51,20 @@ export class Student extends User {
     return this._roleAssignments;
   }
 
+  /** A copy carrying the given active assignments. Repositories use it to hydrate a student. */
+  withRoleAssignments(assignments: RoleAssignment[]): Student {
+    return new Student({
+      userId: this.userId,
+      name: this.name,
+      email: this.email,
+      passwordHash: this.currentPasswordHash,
+      enrollmentNo: this._enrollmentNo,
+      course: this._course,
+      section: this._section,
+      roleAssignments: assignments,
+    });
+  }
+
   moveToSection(section: Section): void {
     this._section = section;
   }

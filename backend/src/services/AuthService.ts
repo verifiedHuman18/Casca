@@ -88,9 +88,7 @@ export class AuthService {
     if (!account || !ok) throw new DomainError('INVALID_CREDENTIALS', BAD_CREDENTIALS);
 
     const user =
-      account instanceof Student
-        ? await this.studentAuthUser(account)
-        : AuthUserMapper.forAdmin(account);
+      account instanceof Student ? this.studentAuthUser(account) : AuthUserMapper.forAdmin(account);
     return this.respond(user);
   }
 
@@ -147,9 +145,12 @@ export class AuthService {
     return { token, user };
   }
 
-  private async studentAuthUser(student: Student): Promise<AuthUser> {
-    const assignments = await this.deps.assignments.findActiveByStudent(student.userId);
-    return AuthUserMapper.forStudent(student, assignments);
+  /**
+   * StudentRepository.findById and findByEnrollmentNo already load the active assignments,
+   * so they are read from the student here instead of being queried a second time.
+   */
+  private studentAuthUser(student: Student): AuthUser {
+    return AuthUserMapper.forStudent(student, [...student.roleAssignments]);
   }
 
   private getDummyHash(): Promise<string> {
