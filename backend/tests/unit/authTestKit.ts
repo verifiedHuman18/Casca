@@ -34,8 +34,8 @@ export class FakeAdminRepository implements AdminRepository {
 }
 
 export function makeAuthKit(admins: Admin[] = [], expiresInSeconds = 3600) {
-  const students = new InMemoryStudentRepository();
   const assignments = new InMemoryRoleAssignmentRepository();
+  const students = new InMemoryStudentRepository([], assignments);
   const sections = new InMemorySectionRepository([makeSection(SECTION_ID)]);
   const service = new AuthService(
     {

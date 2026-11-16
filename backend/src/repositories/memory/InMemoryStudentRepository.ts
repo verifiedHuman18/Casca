@@ -1,6 +1,7 @@
 import { DomainError } from '../../domain/DomainError';
 import { Student } from '../../domain/Student';
 import type { StudentRepository } from '../StudentRepository';
+import type { RoleAssignmentRepository } from '../RoleAssignmentRepository';
 
 interface Entry {
   student: Student;
@@ -10,7 +11,14 @@ interface Entry {
 export class InMemoryStudentRepository implements StudentRepository {
   private readonly byId = new Map<string, Entry>();
 
-  constructor(students: Student[] = []) {
+  /**
+   * Pass the assignment repository to mirror Postgres: findById and findByEnrollmentNo then
+   * return students whose active assignments are loaded. search() stays lightweight.
+   */
+  constructor(
+    students: Student[] = [],
+    private readonly assignments?: RoleAssignmentRepository
+  ) {
     students.forEach(s => this.byId.set(s.userId, { student: s, active: true }));
   }
 
@@ -18,13 +26,19 @@ export class InMemoryStudentRepository implements StudentRepository {
     return [...this.byId.values()].filter(e => e.active).map(e => e.student);
   }
 
+  private async hydrate(student: Student | undefined): Promise<Student | null> {
+    if (!student) return null;
+    if (!this.assignments) return student;
+    return student.withRoleAssignments(await this.assignments.findActiveByStudent(student.userId));
+  }
+
   findById(userId: string): Promise<Student | null> {
-    return Promise.resolve(this.activeStudents().find(s => s.userId === userId) ?? null);
+    return this.hydrate(this.activeStudents().find(s => s.userId === userId));
   }
 
   findByEnrollmentNo(enrollmentNo: string): Promise<Student | null> {
     const wanted = Student.normaliseEnrollmentNo(enrollmentNo);
-    return Promise.resolve(this.activeStudents().find(s => s.enrollmentNo === wanted) ?? null);
+    return this.hydrate(this.activeStudents().find(s => s.enrollmentNo === wanted));
   }
 
   search(enrollmentPrefix: string, limit: number, offset: number): Promise<Student[]> {

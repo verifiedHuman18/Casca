@@ -134,6 +134,22 @@ describe('AuthService.authenticate', () => {
     expect(after.assignments).toEqual([]);
     expect(after.clubIds).toEqual([]);
   });
+  it("loads a student's assignments once per call, not twice", async () => {
+    const { service, assignments } = makeAuthKit();
+    const { token, user } = await service.signUp(signUpInput);
+    await assignments.add(assign(clubMember, { club: makeClub('club-1') }, null, user.userId));
+
+    const calls: string[] = [];
+    const original = assignments.findActiveByStudent.bind(assignments);
+    assignments.findActiveByStudent = (studentId, now) => {
+      calls.push(studentId);
+      return original(studentId, now);
+    };
+
+    const result = await service.authenticate(token);
+    expect(result.assignments).toHaveLength(1);
+    expect(calls).toEqual([user.userId]);
+  });
 });
 
 describe('AuthService.changePassword', () => {

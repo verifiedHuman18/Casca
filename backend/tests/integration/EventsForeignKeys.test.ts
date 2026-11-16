@@ -167,11 +167,11 @@ describe.skipIf(!hasTestDb)('Events foreign-key constraints', () => {
 
       await expect(
         pool.query('DELETE FROM users WHERE user_id = $1', [userId])
-      ).rejects.toMatchObject({ code: '23001' });
+      ).rejects.toMatchObject({ code: '23503' });
 
       await expect(
         pool.query('DELETE FROM clubs WHERE club_id = $1', [clubId])
-      ).rejects.toMatchObject({ code: '23001' });
+      ).rejects.toMatchObject({ code: '23503' });
     } finally {
       await pool.query('DELETE FROM events WHERE event_id = $1', [eventId]);
       await pool.query('DELETE FROM clubs WHERE club_id = $1', [clubId]);
