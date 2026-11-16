@@ -44,7 +44,6 @@ export class PgEventRepository implements EventRepository {
       );
       targetSectionIds = result.rows.map(r => r.section_id);
     }
-    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     const props: EventProps = {
       id: row.event_id,
