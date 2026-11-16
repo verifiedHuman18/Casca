@@ -1,4 +1,18 @@
-import 'dotenv/config';
+import fs from 'node:fs';
+import path from 'node:path';
+import dotenv from 'dotenv';
+
+const candidates = [
+  path.resolve(process.cwd(), 'backend/.env'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(__dirname, '../../.env'),
+];
+for (const envPath of candidates) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    break;
+  }
+}
 
 export interface AuthConfig {
   jwtSecret: string;

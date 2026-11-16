@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { env } from '../config/env';
 
@@ -13,7 +14,10 @@ function buildPool(): Pool {
     if (!env.dbCaCertPath) {
       throw new Error('DB_SSL is on but DB_CA_CERT_PATH is not set');
     }
-    ssl = { ca: fs.readFileSync(env.dbCaCertPath, 'utf8'), rejectUnauthorized: true };
+    const certPath = fs.existsSync(env.dbCaCertPath)
+      ? env.dbCaCertPath
+      : path.resolve(__dirname, '../../', path.basename(env.dbCaCertPath));
+    ssl = { ca: fs.readFileSync(certPath, 'utf8'), rejectUnauthorized: true };
   }
 
   const pool = new Pool({ connectionString: url.toString(), ssl, max: 5 });

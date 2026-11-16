@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,8 +14,13 @@ import {
 import Feather from '@expo/vector-icons/Feather';
 import type { ColorTokens } from '../theme';
 import type { UserSession } from '../types';
-import { loginApi, signUpStudentApi, authUserToSession } from '../services/api';
-import { VALID_COURSES, VALID_SECTIONS_BY_COURSE, type CourseName } from '@senoom/shared';
+import { loginApi, signUpStudentApi, authUserToSession, fetchSectionsApi } from '../services/api';
+import {
+  VALID_COURSES,
+  VALID_SECTIONS_BY_COURSE,
+  type CourseName,
+  type SectionDto,
+} from '@senoom/shared';
 
 export interface AuthScreenProps {
   colors: ColorTokens;
@@ -38,6 +43,13 @@ export function AuthScreen({ colors, onLoginSuccess, onGuestPreview }: AuthScree
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [dbSections, setDbSections] = useState<SectionDto[]>([]);
+
+  useEffect(() => {
+    fetchSectionsApi()
+      .then(setDbSections)
+      .catch(() => {});
+  }, []);
 
   const availableSections = VALID_SECTIONS_BY_COURSE[selectedCourse] || ['A'];
 
@@ -103,32 +115,35 @@ export function AuthScreen({ colors, onLoginSuccess, onGuestPreview }: AuthScree
       return;
     }
 
-    // Default seed sectionId for IT-A or derived from mock/seed
-    const sectionIdentifier = `${selectedCourse}-${selectedSection}`;
-
     setLoading(true);
     try {
+      let matched = dbSections.find(
+        s => s.course === selectedCourse && s.label === selectedSection
+      );
+      if (!matched) {
+        const fresh = await fetchSectionsApi();
+        setDbSections(fresh);
+        matched = fresh.find(s => s.course === selectedCourse && s.label === selectedSection);
+      }
+
+      if (!matched) {
+        setErrorMessage(
+          'Cannot find corresponding section in database. Please ensure the backend server is running.'
+        );
+        setLoading(false);
+        return;
+      }
+
       const authResp = await signUpStudentApi({
         name: trimmedName,
         enrollmentNo: enr,
-        sectionId: sectionIdentifier,
+        sectionId: matched.sectionId,
         password: pwd,
       });
       const session = authUserToSession(authResp.user);
       onLoginSuccess(session, authResp.token);
-    } catch {
-      // If server is offline during development, create a clean student session
-      const fallbackSession: UserSession = {
-        userId: `usr-${Date.now()}`,
-        name: trimmedName,
-        enrollmentNo: enr,
-        course: selectedCourse,
-        section: selectedSection,
-        year: 1,
-        positions: [],
-        clubs: [],
-      };
-      onLoginSuccess(fallbackSession, 'mock-jwt-token');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Sign up failed.');
     } finally {
       setLoading(false);
     }

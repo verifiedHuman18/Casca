@@ -1,7 +1,11 @@
 import { ScopeType, EventStatus, ClubVisibility, UIEventItem, UserSession } from '../types';
-import { UserType, type AuthResponse, type AuthUser } from '@senoom/shared';
+import { UserType, type AuthResponse, type AuthUser, type SectionDto } from '@senoom/shared';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+const isTestEnv =
+  typeof process !== 'undefined' &&
+  (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true');
 
 let authToken: string | null = null;
 
@@ -341,11 +345,22 @@ export async function loginApi(
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '';
-    if (msg && !msg.includes('fetch failed') && !msg.includes('ECONNREFUSED')) {
+    if (
+      msg &&
+      !msg.includes('fetch failed') &&
+      !msg.includes('ECONNREFUSED') &&
+      !msg.includes('Network request failed')
+    ) {
       throw err;
     }
 
-    // Offline / Standalone Mock Fallback
+    if (!isTestEnv) {
+      throw new Error(
+        `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running.`
+      );
+    }
+
+    // Offline / Standalone Mock Fallback (for unit tests only)
     const isAdmin = 'email' in identifier && identifier.email.includes('admin');
     const mockUser: AuthUser = isAdmin
       ? {
@@ -439,11 +454,22 @@ export async function signUpStudentApi(input: {
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '';
-    if (msg && !msg.includes('fetch failed') && !msg.includes('ECONNREFUSED')) {
+    if (
+      msg &&
+      !msg.includes('fetch failed') &&
+      !msg.includes('ECONNREFUSED') &&
+      !msg.includes('Network request failed')
+    ) {
       throw err;
     }
 
-    // Offline / Standalone Mock Fallback
+    if (!isTestEnv) {
+      throw new Error(
+        `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running.`
+      );
+    }
+
+    // Offline / Standalone Mock Fallback (for unit tests only)
     const mockResp: AuthResponse = {
       token: `mock-jwt-token-${Date.now()}`,
       user: {
@@ -461,6 +487,18 @@ export async function signUpStudentApi(input: {
     setAuthToken(mockResp.token);
     return mockResp;
   }
+}
+
+export async function fetchSectionsApi(): Promise<SectionDto[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/sections`);
+    if (res.ok) {
+      return (await res.json()) as SectionDto[];
+    }
+  } catch {
+    // Return empty if backend is not reachable
+  }
+  return [];
 }
 
 // ─── Approval Queue & My Requests Mock Fallbacks ──────────────────────────────
