@@ -1,12 +1,17 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+  type DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import type { ColorTokens } from '../theme';
 import {
   calculateEndTime24,
   formatTime24,
   getTimeDuration,
   parseDateKey,
+  parseIsoToTimeParts,
   MONTH_NAMES,
   DAY_SHORT,
 } from '../utils/date';
@@ -29,8 +34,6 @@ const DURATION_PRESETS = [
   { label: '3h', minutes: 180 },
 ];
 
-const MINUTE_STEPS = [0, 15, 30, 45];
-
 export function TimePickerSection({
   colors: c,
   dateKey,
@@ -39,30 +42,16 @@ export function TimePickerSection({
   onChangeStartTime,
   onChangeEndTime,
 }: TimePickerSectionProps) {
-  // Parse Start Time parts
-  const [startH24, startM] = useMemo(() => {
-    const [h, m] = startTime.split(':').map(Number);
-    return [h ?? 10, m ?? 0];
-  }, [startTime]);
+  // State for non-Android platforms (iOS / Web modal)
+  const [iosPickerTarget, setIosPickerTarget] = useState<'start' | 'end' | null>(null);
+  const [iosTempDate, setIosTempDate] = useState<Date>(new Date());
 
-  const startIsPm = startH24 >= 12;
-  const startHour12 = startH24 % 12 || 12;
-
-  // Parse End Time parts
-  const [endH24, endM] = useMemo(() => {
-    const [h, m] = endTime.split(':').map(Number);
-    return [h ?? 11, m ?? 30];
-  }, [endTime]);
-
-  const endIsPm = endH24 >= 12;
-  const endHour12 = endH24 % 12 || 12;
-
-  // Calculate current duration
+  // Duration computation
   const durationInfo = useMemo(() => {
     return getTimeDuration(startTime, endTime);
   }, [startTime, endTime]);
 
-  // Formatted date string
+  // Formatted date string for display
   const dateFormatted = useMemo(() => {
     try {
       const d = parseDateKey(dateKey);
@@ -74,59 +63,51 @@ export function TimePickerSection({
     }
   }, [dateKey]);
 
-  // Helper to construct 24h string from 12h + AM/PM + mins
-  const to24h = (hour12: number, isPm: boolean, minutes: number): string => {
-    let h24 = hour12 % 12;
-    if (isPm) h24 += 12;
-    return `${String(h24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  // Helper to convert HH:mm to a Date object today
+  const time24ToDate = (time24: string): Date => {
+    const [h, m] = time24.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h || 10, m || 0, 0, 0);
+    return d;
   };
 
-  const adjustStartHour = (delta: number) => {
-    let next12 = startHour12 + delta;
-    if (next12 > 12) next12 = 1;
-    if (next12 < 1) next12 = 12;
-    const nextStart24 = to24h(next12, startIsPm, startM);
-    onChangeStartTime(nextStart24);
-
-    // If duration was valid, automatically shift end time by the same duration
+  const handleStartTimeSelected = (newStart24: string) => {
+    onChangeStartTime(newStart24);
+    // Keep duration intact if previously valid
     if (durationInfo.isValid && durationInfo.durationMinutes > 0) {
-      onChangeEndTime(calculateEndTime24(nextStart24, durationInfo.durationMinutes));
+      onChangeEndTime(calculateEndTime24(newStart24, durationInfo.durationMinutes));
     }
   };
 
-  const toggleStartAmPm = (targetIsPm: boolean) => {
-    if (startIsPm === targetIsPm) return;
-    const nextStart24 = to24h(startHour12, targetIsPm, startM);
-    onChangeStartTime(nextStart24);
+  const handleEndTimeSelected = (newEnd24: string) => {
+    onChangeEndTime(newEnd24);
+  };
 
-    if (durationInfo.isValid && durationInfo.durationMinutes > 0) {
-      onChangeEndTime(calculateEndTime24(nextStart24, durationInfo.durationMinutes));
+  // Open native system time picker
+  const openTimePicker = (target: 'start' | 'end') => {
+    const initialDate = target === 'start' ? time24ToDate(startTime) : time24ToDate(endTime);
+
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: initialDate,
+        mode: 'time',
+        is24Hour: false,
+        onChange: (event: DateTimePickerEvent, selectedDate?: Date) => {
+          if (event.type === 'set' && selectedDate) {
+            const parts = parseIsoToTimeParts(selectedDate);
+            if (target === 'start') {
+              handleStartTimeSelected(parts.time24);
+            } else {
+              handleEndTimeSelected(parts.time24);
+            }
+          }
+        },
+      });
+    } else {
+      // iOS / Web modal fallback
+      setIosTempDate(initialDate);
+      setIosPickerTarget(target);
     }
-  };
-
-  const setStartMinutes = (m: number) => {
-    const nextStart24 = to24h(startHour12, startIsPm, m);
-    onChangeStartTime(nextStart24);
-
-    if (durationInfo.isValid && durationInfo.durationMinutes > 0) {
-      onChangeEndTime(calculateEndTime24(nextStart24, durationInfo.durationMinutes));
-    }
-  };
-
-  const adjustEndHour = (delta: number) => {
-    let next12 = endHour12 + delta;
-    if (next12 > 12) next12 = 1;
-    if (next12 < 1) next12 = 12;
-    onChangeEndTime(to24h(next12, endIsPm, endM));
-  };
-
-  const toggleEndAmPm = (targetIsPm: boolean) => {
-    if (endIsPm === targetIsPm) return;
-    onChangeEndTime(to24h(endHour12, targetIsPm, endM));
-  };
-
-  const setEndMinutes = (m: number) => {
-    onChangeEndTime(to24h(endHour12, endIsPm, m));
   };
 
   const applyPresetDuration = (minutes: number) => {
@@ -151,95 +132,73 @@ export function TimePickerSection({
           <Text style={[styles.dateText, { color: c.textPrimary }]}>{dateFormatted}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: c.bgCard }]}>
-          <Text style={[styles.statusBadgeText, { color: c.textSecondary }]}>Event Schedule</Text>
+          <Text style={[styles.statusBadgeText, { color: c.textSecondary }]}>System Clock</Text>
         </View>
       </View>
 
-      {/* ── START TIME ROW ────────────────────────────── */}
-      <View style={styles.sectionBlock}>
-        <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>START TIME</Text>
-        <View style={styles.timeControlsRow}>
-          {/* Hour Stepper */}
-          <View
-            style={[styles.stepperContainer, { backgroundColor: c.bgCard, borderColor: c.border }]}
-          >
-            <TouchableOpacity
-              onPress={() => adjustStartHour(-1)}
-              style={styles.stepperBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="minus" size={14} color={c.textPrimary} />
-            </TouchableOpacity>
-            <Text style={[styles.hourValue, { color: c.textPrimary }]}>
-              {String(startHour12).padStart(2, '0')}
-            </Text>
-            <TouchableOpacity
-              onPress={() => adjustStartHour(1)}
-              style={styles.stepperBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="plus" size={14} color={c.textPrimary} />
-            </TouchableOpacity>
+      {/* ── TIME PICKER CARDS (Side-by-side) ────────────────────────────── */}
+      <View style={styles.timeCardsRow}>
+        {/* Start Time Card */}
+        <TouchableOpacity
+          style={[
+            styles.timeCard,
+            {
+              backgroundColor: c.bgCard,
+              borderColor: c.border,
+            },
+          ]}
+          onPress={() => openTimePicker('start')}
+          activeOpacity={0.75}
+        >
+          <View style={styles.timeCardHeader}>
+            <Text style={[styles.timeCardLabel, { color: c.textSecondary }]}>START TIME</Text>
+            <Feather name="clock" size={13} color={c.textSecondary} />
           </View>
+          <Text style={[styles.timeCardValue, { color: c.textPrimary }]}>
+            {formatTime24(startTime)}
+          </Text>
+          <Text style={[styles.timeCardHint, { color: c.textMuted }]}>Tap to change</Text>
+        </TouchableOpacity>
 
-          {/* Minute Selector Pills */}
-          <View style={styles.minutePillsRow}>
-            {MINUTE_STEPS.map(m => {
-              const isSelected = startM === m;
-              return (
-                <TouchableOpacity
-                  key={`start-m-${m}`}
-                  onPress={() => setStartMinutes(m)}
-                  style={[
-                    styles.minPill,
-                    {
-                      backgroundColor: isSelected ? c.tintWarm : c.bgCard,
-                      borderColor: isSelected ? c.tintWarmText : c.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.minPillText,
-                      { color: isSelected ? c.tintWarmText : c.textSecondary },
-                    ]}
-                  >
-                    :{String(m).padStart(2, '0')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+        {/* End Time Card */}
+        <TouchableOpacity
+          style={[
+            styles.timeCard,
+            {
+              backgroundColor: c.bgCard,
+              borderColor: durationInfo.isValid ? c.border : '#fca5a5',
+            },
+          ]}
+          onPress={() => openTimePicker('end')}
+          activeOpacity={0.75}
+        >
+          <View style={styles.timeCardHeader}>
+            <Text style={[styles.timeCardLabel, { color: c.textSecondary }]}>END TIME</Text>
+            {durationInfo.isValid ? (
+              <View style={[styles.durationBadge, { backgroundColor: c.tintSage }]}>
+                <Text style={[styles.durationBadgeText, { color: c.tintSageText }]}>
+                  {durationInfo.formatted}
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.durationBadge, { backgroundColor: '#fee2e2' }]}>
+                <Text style={[styles.durationBadgeText, { color: '#b91c1c' }]}>Invalid</Text>
+              </View>
+            )}
           </View>
-
-          {/* AM / PM Segmented Control */}
-          <View
-            style={[styles.amPmContainer, { backgroundColor: c.bgCard, borderColor: c.border }]}
+          <Text
+            style={[
+              styles.timeCardValue,
+              { color: durationInfo.isValid ? c.textPrimary : '#b91c1c' },
+            ]}
           >
-            <TouchableOpacity
-              onPress={() => toggleStartAmPm(false)}
-              style={[styles.amPmBtn, !startIsPm && { backgroundColor: c.tintWarm }]}
-            >
-              <Text
-                style={[styles.amPmText, { color: !startIsPm ? c.tintWarmText : c.textSecondary }]}
-              >
-                AM
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => toggleStartAmPm(true)}
-              style={[styles.amPmBtn, startIsPm && { backgroundColor: c.tintWarm }]}
-            >
-              <Text
-                style={[styles.amPmText, { color: startIsPm ? c.tintWarmText : c.textSecondary }]}
-              >
-                PM
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            {formatTime24(endTime)}
+          </Text>
+          <Text style={[styles.timeCardHint, { color: c.textMuted }]}>Tap to change</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* ── QUICK DURATION PRESETS ────────────────────────────── */}
+      {/* ── QUICK DURATION PRESET CHIPS ────────────────────────────── */}
       <View style={styles.presetsRow}>
         <Text style={[styles.presetLabel, { color: c.textSecondary }]}>Duration:</Text>
         <View style={styles.presetChips}>
@@ -272,114 +231,55 @@ export function TimePickerSection({
         </View>
       </View>
 
-      {/* ── END TIME ROW ────────────────────────────── */}
-      <View style={styles.sectionBlock}>
-        <View style={styles.endHeaderRow}>
-          <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>END TIME</Text>
-          {durationInfo.isValid ? (
-            <View style={[styles.durationBadge, { backgroundColor: c.tintSage }]}>
-              <Feather name="clock" size={11} color={c.tintSageText} style={{ marginRight: 4 }} />
-              <Text style={[styles.durationBadgeText, { color: c.tintSageText }]}>
-                {durationInfo.formatted}
-              </Text>
-            </View>
-          ) : (
-            <View style={[styles.durationBadge, { backgroundColor: '#fee2e2' }]}>
-              <Feather name="alert-circle" size={11} color="#b91c1c" style={{ marginRight: 4 }} />
-              <Text style={[styles.durationBadgeText, { color: '#b91c1c' }]}>Invalid range</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.timeControlsRow}>
-          {/* Hour Stepper */}
-          <View
-            style={[styles.stepperContainer, { backgroundColor: c.bgCard, borderColor: c.border }]}
-          >
-            <TouchableOpacity
-              onPress={() => adjustEndHour(-1)}
-              style={styles.stepperBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      {/* ── IOS / WEB MODAL FALLBACK ────────────────────────────── */}
+      {Platform.OS !== 'android' && iosPickerTarget && (
+        <Modal
+          transparent
+          animationType="fade"
+          visible={Boolean(iosPickerTarget)}
+          onRequestClose={() => setIosPickerTarget(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View
+              style={[styles.iosModalContent, { backgroundColor: c.bgCard, borderColor: c.border }]}
             >
-              <Feather name="minus" size={14} color={c.textPrimary} />
-            </TouchableOpacity>
-            <Text style={[styles.hourValue, { color: c.textPrimary }]}>
-              {String(endHour12).padStart(2, '0')}
-            </Text>
-            <TouchableOpacity
-              onPress={() => adjustEndHour(1)}
-              style={styles.stepperBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="plus" size={14} color={c.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Minute Selector Pills */}
-          <View style={styles.minutePillsRow}>
-            {MINUTE_STEPS.map(m => {
-              const isSelected = endM === m;
-              return (
-                <TouchableOpacity
-                  key={`end-m-${m}`}
-                  onPress={() => setEndMinutes(m)}
-                  style={[
-                    styles.minPill,
-                    {
-                      backgroundColor: isSelected ? c.tintWarm : c.bgCard,
-                      borderColor: isSelected ? c.tintWarmText : c.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.minPillText,
-                      { color: isSelected ? c.tintWarmText : c.textSecondary },
-                    ]}
-                  >
-                    :{String(m).padStart(2, '0')}
-                  </Text>
+              <View style={styles.iosModalHeader}>
+                <Text style={[styles.iosModalTitle, { color: c.textPrimary }]}>
+                  Select {iosPickerTarget === 'start' ? 'Start' : 'End'} Time
+                </Text>
+                <TouchableOpacity onPress={() => setIosPickerTarget(null)}>
+                  <Feather name="x" size={20} color={c.textSecondary} />
                 </TouchableOpacity>
-              );
-            })}
-          </View>
+              </View>
 
-          {/* AM / PM Segmented Control */}
-          <View
-            style={[styles.amPmContainer, { backgroundColor: c.bgCard, borderColor: c.border }]}
-          >
-            <TouchableOpacity
-              onPress={() => toggleEndAmPm(false)}
-              style={[styles.amPmBtn, !endIsPm && { backgroundColor: c.tintWarm }]}
-            >
-              <Text
-                style={[styles.amPmText, { color: !endIsPm ? c.tintWarmText : c.textSecondary }]}
-              >
-                AM
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => toggleEndAmPm(true)}
-              style={[styles.amPmBtn, endIsPm && { backgroundColor: c.tintWarm }]}
-            >
-              <Text
-                style={[styles.amPmText, { color: endIsPm ? c.tintWarmText : c.textSecondary }]}
-              >
-                PM
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+              <DateTimePicker
+                value={iosTempDate}
+                mode="time"
+                display="spinner"
+                is24Hour={false}
+                onChange={(_event: DateTimePickerEvent, selectedDate?: Date) => {
+                  if (selectedDate) setIosTempDate(selectedDate);
+                }}
+              />
 
-      {/* Summary Footer */}
-      <View style={styles.summaryFooter}>
-        <Text style={[styles.summaryText, { color: c.textSecondary }]}>
-          Schedule:{' '}
-          <Text style={{ fontWeight: '600', color: c.textPrimary }}>{formatTime24(startTime)}</Text>{' '}
-          – <Text style={{ fontWeight: '600', color: c.textPrimary }}>{formatTime24(endTime)}</Text>
-        </Text>
-      </View>
+              <TouchableOpacity
+                style={[styles.modalDoneBtn, { backgroundColor: c.pillActiveBg }]}
+                onPress={() => {
+                  const parts = parseIsoToTimeParts(iosTempDate);
+                  if (iosPickerTarget === 'start') {
+                    handleStartTimeSelected(parts.time24);
+                  } else {
+                    handleEndTimeSelected(parts.time24);
+                  }
+                  setIosPickerTarget(null);
+                }}
+              >
+                <Text style={[styles.modalDoneBtnText, { color: c.pillActiveText }]}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -395,7 +295,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -414,89 +314,50 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
-  sectionBlock: {
+  timeCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
     marginBottom: 10,
   },
-  sectionLabel: {
+  timeCard: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+  },
+  timeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  timeCardLabel: {
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.6,
-    marginBottom: 6,
-    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  endHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
+  timeCardValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginVertical: 2,
+  },
+  timeCardHint: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   durationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 7,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 6,
   },
   durationBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  timeControlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  stepperBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  hourValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    minWidth: 24,
-    textAlign: 'center',
-  },
-  minutePillsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  minPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  minPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  amPmContainer: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  amPmBtn: {
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-  },
-  amPmText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   presetsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 6,
+    paddingTop: 4,
   },
   presetLabel: {
     fontSize: 11,
@@ -506,12 +367,12 @@ const styles = StyleSheet.create({
   presetChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 5,
+    gap: 6,
     flex: 1,
   },
   presetChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -519,13 +380,40 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  summaryFooter: {
-    marginTop: 6,
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(150, 150, 150, 0.2)',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
-  summaryText: {
-    fontSize: 12,
+  iosModalContent: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    alignItems: 'center',
+  },
+  iosModalHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  iosModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalDoneBtn: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  modalDoneBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

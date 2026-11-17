@@ -12,8 +12,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@expo/vector-icons": "^15.1.1",
     "@casca/shared": "*",
+    "@expo/vector-icons": "^15.1.1",
+    "@react-native-community/datetimepicker": "9.2.1",
     "expo": "~58.0.24",
     "expo-status-bar": "~58.0.5",
     "expo-system-ui": "~58.0.7",
