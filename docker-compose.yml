@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  casca-postgres:
+    image: postgres:16-alpine
+    container_name: casca-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: casca
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-casca_secret_password}
+      POSTGRES_DB: casca
+    ports:
+      - '5432:5432'
+    volumes:
+      - casca-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U casca -d casca']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  casca-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: casca-backend
+    restart: unless-stopped
+    depends_on:
+      casca-postgres:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://casca:${DB_PASSWORD:-casca_secret_password}@casca-postgres:5432/casca
+      DB_SSL: 'false'
+      JWT_SECRET: ${JWT_SECRET:-casca_production_jwt_secret_must_be_32_characters_minimum}
+      TRUST_PROXY: 'true'
+      CORS_ORIGINS: '*'
+    ports:
+      - '4000:4000'
+
+volumes:
+  casca-pgdata:

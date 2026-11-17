@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Pool } from 'pg';
 
-const DEFAULT_DIR = path.join(__dirname, 'migrations');
+const DEFAULT_DIR = fs.existsSync(path.join(__dirname, 'migrations'))
+  ? path.join(__dirname, 'migrations')
+  : path.resolve(__dirname, '../../src/db/migrations');
 
 /** Applies pending numbered .sql files in order. Returns the names applied this run. */
 export async function runMigrations(pool: Pool, dir: string = DEFAULT_DIR): Promise<string[]> {

@@ -1,0 +1,27 @@
+# Git and IDE
+.git
+.gitignore
+.husky
+.vscode
+.idea
+
+# Dependencies and logs
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Client app (React Native / Expo - not part of backend container)
+client/
+docs/
+artifacts/
+
+# Test artifacts and build outputs
+**/dist
+**/coverage
+**/build
+**/.system_generated
+
+# Environment secrets
+**/.env
+**/.env.*
+!**/.env.example
