@@ -261,8 +261,12 @@ export interface FetchCalendarFilter {
 export async function fetchCalendarEvents(filter?: FetchCalendarFilter): Promise<UIEventItem[]> {
   try {
     const params = new URLSearchParams();
-    if (filter?.from) params.set('from', filter.from);
-    if (filter?.to) params.set('to', filter.to);
+    const now = Date.now();
+    const from = filter?.from || new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const to = filter?.to || new Date(now + 90 * 24 * 60 * 60 * 1000).toISOString();
+    params.set('from', from);
+    params.set('to', to);
+
     if (filter?.clubIds) {
       filter.clubIds.forEach(id => params.append('clubIds', id));
     }
@@ -340,7 +344,11 @@ export async function createNewEvent(
       if (res.ok) {
         const body = await res.json();
         const created = body.event ?? body;
-        return mapBackendEventToUI(created);
+        const item = mapBackendEventToUI(created);
+        if (Array.isArray(body.clashWarnings) && body.clashWarnings.length > 0) {
+          item.clashWarnings = body.clashWarnings;
+        }
+        return item;
       }
     }
   } catch {
@@ -705,7 +713,11 @@ export async function resubmitEventApi(
     if (res.ok) {
       const body = await res.json();
       const updated = body.event ?? body;
-      return mapBackendEventToUI(updated);
+      const item = mapBackendEventToUI(updated);
+      if (Array.isArray(body.clashWarnings) && body.clashWarnings.length > 0) {
+        item.clashWarnings = body.clashWarnings;
+      }
+      return item;
     }
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || `Failed to resubmit (${res.status})`);
@@ -740,7 +752,11 @@ export async function updateEventApi(
     if (res.ok) {
       const body = await res.json();
       const updated = body.event ?? body;
-      return mapBackendEventToUI(updated);
+      const item = mapBackendEventToUI(updated);
+      if (Array.isArray(body.clashWarnings) && body.clashWarnings.length > 0) {
+        item.clashWarnings = body.clashWarnings;
+      }
+      return item;
     }
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || `Update failed (${res.status})`);
@@ -775,7 +791,11 @@ export async function rescheduleEventApi(
     if (res.ok) {
       const body = await res.json();
       const updated = body.event ?? body;
-      return mapBackendEventToUI(updated);
+      const item = mapBackendEventToUI(updated);
+      if (Array.isArray(body.clashWarnings) && body.clashWarnings.length > 0) {
+        item.clashWarnings = body.clashWarnings;
+      }
+      return item;
     }
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || `Reschedule failed (${res.status})`);

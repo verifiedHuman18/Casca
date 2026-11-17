@@ -12,6 +12,12 @@ import {
   getWeekDays,
   getPreviousDayKey,
   getNextDayKey,
+  buildIsoDateTime,
+  parseIsoToTimeParts,
+  calculateEndTime24,
+  getTimeDuration,
+  formatTime24,
+  sortEventsChronologically,
 } from '../src/utils/date';
 
 describe('Date Utilities (client/src/utils/date.ts)', () => {
@@ -172,6 +178,94 @@ describe('Date Utilities (client/src/utils/date.ts)', () => {
       const week = getWeekDays('2026-11-01');
       expect(week[0].dateKey).toBe('2026-11-01');
       expect(week[0].dayShort).toBe('SUN');
+    });
+  });
+
+  describe('buildIsoDateTime', () => {
+    it('creates an ISO date-time string matching dateKey and time24 in local time', () => {
+      const iso = buildIsoDateTime('2026-11-20', '14:30');
+      const parsed = new Date(iso);
+      expect(parsed.getFullYear()).toBe(2026);
+      expect(parsed.getMonth()).toBe(10); // Nov
+      expect(parsed.getDate()).toBe(20);
+      expect(parsed.getHours()).toBe(14);
+      expect(parsed.getMinutes()).toBe(30);
+    });
+  });
+
+  describe('parseIsoToTimeParts', () => {
+    it('parses morning time correctly', () => {
+      const d = new Date(2026, 10, 20, 9, 15);
+      const parts = parseIsoToTimeParts(d.toISOString());
+      expect(parts.hour12).toBe(9);
+      expect(parts.minute).toBe(15);
+      expect(parts.isPm).toBe(false);
+      expect(parts.time24).toBe('09:15');
+      expect(parts.formatted).toBe('9:15 AM');
+    });
+
+    it('parses afternoon/evening time correctly', () => {
+      const d = new Date(2026, 10, 20, 16, 45);
+      const parts = parseIsoToTimeParts(d.toISOString());
+      expect(parts.hour12).toBe(4);
+      expect(parts.minute).toBe(45);
+      expect(parts.isPm).toBe(true);
+      expect(parts.time24).toBe('16:45');
+      expect(parts.formatted).toBe('4:45 PM');
+    });
+  });
+
+  describe('calculateEndTime24', () => {
+    it('adds 90 minutes correctly to morning time', () => {
+      expect(calculateEndTime24('10:00', 90)).toBe('11:30');
+    });
+
+    it('handles hour rollovers across noon', () => {
+      expect(calculateEndTime24('11:30', 60)).toBe('12:30');
+    });
+
+    it('handles 30 minute durations', () => {
+      expect(calculateEndTime24('09:15', 30)).toBe('09:45');
+    });
+  });
+
+  describe('getTimeDuration', () => {
+    it('calculates duration between two 24h times', () => {
+      const res = getTimeDuration('10:00', '11:30');
+      expect(res.isValid).toBe(true);
+      expect(res.durationMinutes).toBe(90);
+      expect(res.formatted).toBe('1h 30m');
+    });
+
+    it('identifies invalid time ranges where end is before start', () => {
+      const res = getTimeDuration('14:00', '13:00');
+      expect(res.isValid).toBe(false);
+      expect(res.durationMinutes).toBeLessThan(0);
+    });
+
+    it('identifies zero duration as invalid', () => {
+      const res = getTimeDuration('10:00', '10:00');
+      expect(res.isValid).toBe(false);
+    });
+  });
+
+  describe('formatTime24', () => {
+    it('formats 24h string into 12h representation', () => {
+      expect(formatTime24('09:00')).toBe('9:00 AM');
+      expect(formatTime24('13:45')).toBe('1:45 PM');
+      expect(formatTime24('00:00')).toBe('12:00 AM');
+      expect(formatTime24('12:00')).toBe('12:00 PM');
+    });
+  });
+
+  describe('sortEventsChronologically', () => {
+    it('sorts events in ascending order by startTime', () => {
+      const e1 = { id: '1', startTime: '2026-11-20T14:00:00Z' };
+      const e2 = { id: '2', startTime: '2026-11-20T09:00:00Z' };
+      const e3 = { id: '3', startTime: '2026-11-20T11:30:00Z' };
+
+      const sorted = sortEventsChronologically([e1, e2, e3]);
+      expect(sorted.map(e => e.id)).toEqual(['2', '3', '1']);
     });
   });
 });

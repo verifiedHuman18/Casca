@@ -205,3 +205,107 @@ export function formatTimeRange(
     duration: duration.trim() || '1h',
   };
 }
+
+/**
+ * Builds an exact ISO 8601 string given a date key (YYYY-MM-DD) and a 24h time string (HH:mm).
+ * Respects the user's local timezone and converts to a proper ISO string.
+ */
+export function buildIsoDateTime(dateKey: string, time24: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const [hours, minutes] = time24.split(':').map(Number);
+  const date = new Date(y, m - 1, d, hours || 0, minutes || 0, 0, 0);
+  return date.toISOString();
+}
+
+export interface TimeParts {
+  hour12: number;
+  minute: number;
+  isPm: boolean;
+  time24: string;
+  formatted: string;
+}
+
+/**
+ * Parses an ISO 8601 string or Date into 12-hour and 24-hour time parts in local time.
+ */
+export function parseIsoToTimeParts(isoOrDate: string | Date): TimeParts {
+  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  const hours = d.getHours();
+  const minutes = d.getMinutes();
+  const isPm = hours >= 12;
+  const hour12 = hours % 12 || 12;
+  const minutePadded = String(minutes).padStart(2, '0');
+  const time24 = `${String(hours).padStart(2, '0')}:${minutePadded}`;
+  const formatted = `${hour12}:${minutePadded} ${isPm ? 'PM' : 'AM'}`;
+
+  return {
+    hour12,
+    minute: minutes,
+    isPm,
+    time24,
+    formatted,
+  };
+}
+
+/**
+ * Computes an end time (HH:mm) given a start time (HH:mm) and a duration in minutes.
+ */
+export function calculateEndTime24(startTime24: string, durationMinutes: number): string {
+  const [startH, startM] = startTime24.split(':').map(Number);
+  const totalMinutes = (startH || 0) * 60 + (startM || 0) + durationMinutes;
+  const endH = Math.floor(totalMinutes / 60) % 24;
+  const endM = totalMinutes % 60;
+  return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+}
+
+export interface DurationResult {
+  durationMinutes: number;
+  formatted: string;
+  isValid: boolean;
+}
+
+/**
+ * Computes the duration between two 24-hour time strings on the same day.
+ */
+export function getTimeDuration(startTime24: string, endTime24: string): DurationResult {
+  const [sh, sm] = startTime24.split(':').map(Number);
+  const [eh, em] = endTime24.split(':').map(Number);
+  const startMins = (sh || 0) * 60 + (sm || 0);
+  const endMins = (eh || 0) * 60 + (em || 0);
+  const diff = endMins - startMins;
+
+  if (diff <= 0) {
+    return { durationMinutes: diff, formatted: '0m', isValid: false };
+  }
+
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  let formatted = '';
+  if (h > 0) formatted += `${h}h `;
+  if (m > 0) formatted += `${m}m`;
+
+  return {
+    durationMinutes: diff,
+    formatted: formatted.trim() || `${diff}m`,
+    isValid: true,
+  };
+}
+
+/**
+ * Formats a 24-hour time string (HH:mm) into a 12-hour string (e.g. "10:00 AM", "3:30 PM").
+ */
+export function formatTime24(time24: string): string {
+  const [h, m] = time24.split(':').map(Number);
+  const isPm = (h || 0) >= 12;
+  const h12 = (h || 0) % 12 || 12;
+  return `${h12}:${String(m || 0).padStart(2, '0')} ${isPm ? 'PM' : 'AM'}`;
+}
+
+/**
+ * Sorts event items chronologically ascending by startTime.
+ */
+export function sortEventsChronologically<T extends { startTime: string }>(events: T[]): T[] {
+  return [...events].sort(
+    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+  );
+}

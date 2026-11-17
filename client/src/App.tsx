@@ -33,6 +33,7 @@ import { AnimatedFocusInput } from './components/AnimatedFocusInput';
 import { ApprovalQueueDrawer } from './components/ApprovalQueueDrawer';
 import { MyRequestsDrawer } from './components/MyRequestsDrawer';
 import { AuthScreen } from './components/AuthScreen';
+import { TimePickerSection } from './components/TimePickerSection';
 import {
   MONTH_NAMES,
   MONTH_SHORT,
@@ -43,6 +44,10 @@ import {
   getWeekDays,
   getPreviousDayKey,
   getNextDayKey,
+  buildIsoDateTime,
+  parseIsoToTimeParts,
+  sortEventsChronologically,
+  getTimeDuration,
 } from './utils/date';
 
 type MainViewMode = 'day' | 'month' | 'event';
@@ -114,6 +119,9 @@ export default function App() {
   const [formVenue, setFormVenue] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formScope, setFormScope] = useState<ScopeType>(ScopeType.SECTION);
+  const [formDateKey, setFormDateKey] = useState<string>(selectedDayKey);
+  const [formStartTime, setFormStartTime] = useState<string>('10:00');
+  const [formEndTime, setFormEndTime] = useState<string>('11:30');
 
   const th = getTheme(themeMode);
   const c = th.colors;
@@ -144,6 +152,11 @@ export default function App() {
       if (isCreateOpen) {
         setIsCreateOpen(false);
         setEditingEventId(null);
+        setFormTitle('');
+        setFormVenue('');
+        setFormDesc('');
+        setFormStartTime('10:00');
+        setFormEndTime('11:30');
         return true;
       }
       if (viewMode === 'event') {
@@ -198,6 +211,9 @@ export default function App() {
       const key = getDateKeyFromISO(evt.startTime);
       map.set(key, [...(map.get(key) || []), evt]);
     });
+    for (const [key, dayEvents] of map.entries()) {
+      map.set(key, sortEventsChronologically(dayEvents));
+    }
     return map;
   }, [events]);
 
@@ -290,6 +306,15 @@ export default function App() {
       return;
     }
 
+    const durationCheck = getTimeDuration(formStartTime, formEndTime);
+    if (!durationCheck.isValid) {
+      Alert.alert('Invalid Time Range', 'Event end time must be after start time.');
+      return;
+    }
+
+    const startIso = buildIsoDateTime(formDateKey, formStartTime);
+    const endIso = buildIsoDateTime(formDateKey, formEndTime);
+
     if (editingEventId) {
       const existing = events.find(e => e.id === editingEventId);
       if (existing?.status === EventStatus.REJECTED) {
@@ -298,11 +323,21 @@ export default function App() {
             title: formTitle.trim(),
             description: formDesc.trim(),
             venue: formVenue.trim(),
-            startTime: existing.startTime,
-            endTime: existing.endTime,
+            startTime: startIso,
+            endTime: endIso,
           });
           setEvents(prev => prev.map(e => (e.id === editingEventId ? updated : e)));
-          Alert.alert('Resubmitted', 'Event request resubmitted for council review.');
+          if (updated.clashWarnings?.length) {
+            const warningDetails = updated.clashWarnings
+              .map(w => `• "${w.title}" at ${w.venue}`)
+              .join('\n');
+            Alert.alert(
+              'Resubmitted with Venue Clash Warning',
+              `Event request resubmitted for council review.\n\nNotice: Conflicting events at venue:\n${warningDetails}`
+            );
+          } else {
+            Alert.alert('Resubmitted', 'Event request resubmitted for council review.');
+          }
         } catch (err: unknown) {
           Alert.alert('Error', err instanceof Error ? err.message : 'Resubmission failed.');
         }
@@ -312,12 +347,24 @@ export default function App() {
             title: formTitle.trim(),
             description: formDesc.trim(),
             venue: formVenue.trim(),
+            startTime: startIso,
+            endTime: endIso,
           });
           setEvents(prev => prev.map(e => (e.id === editingEventId ? updated : e)));
           if (selectedEvent?.id === editingEventId) {
             setSelectedEvent(updated);
           }
-          Alert.alert('Updated', 'Event details updated successfully.');
+          if (updated.clashWarnings?.length) {
+            const warningDetails = updated.clashWarnings
+              .map(w => `• "${w.title}" at ${w.venue}`)
+              .join('\n');
+            Alert.alert(
+              'Updated with Venue Clash Warning',
+              `Event updated successfully.\n\nNotice: Conflicting events at venue:\n${warningDetails}`
+            );
+          } else {
+            Alert.alert('Updated', 'Event details updated successfully.');
+          }
         } catch (err: unknown) {
           Alert.alert('Error', err instanceof Error ? err.message : 'Update failed.');
         }
@@ -326,6 +373,8 @@ export default function App() {
       setFormTitle('');
       setFormVenue('');
       setFormDesc('');
+      setFormStartTime('10:00');
+      setFormEndTime('11:30');
       setIsCreateOpen(false);
       return;
     }
@@ -355,8 +404,8 @@ export default function App() {
       title: formTitle.trim(),
       description: formDesc.trim(),
       venue: formVenue.trim(),
-      startTime: `${selectedDayKey}T10:00:00.000Z`,
-      endTime: `${selectedDayKey}T11:30:00.000Z`,
+      startTime: startIso,
+      endTime: endIso,
       scope: formScope,
       clubName: formScope === ScopeType.CLUB ? user.clubs[0] || 'Coding Club' : undefined,
       targetSections:
@@ -364,9 +413,20 @@ export default function App() {
     });
 
     setEvents(prev => [created, ...prev]);
+    if (created.clashWarnings?.length) {
+      const warningDetails = created.clashWarnings
+        .map(w => `• "${w.title}" at ${w.venue}`)
+        .join('\n');
+      Alert.alert(
+        'Published with Venue Clash Warning',
+        `Event was published, but conflicts with existing schedule:\n\n${warningDetails}`
+      );
+    }
     setFormTitle('');
     setFormVenue('');
     setFormDesc('');
+    setFormStartTime('10:00');
+    setFormEndTime('11:30');
     setIsCreateOpen(false);
   };
 
@@ -376,12 +436,17 @@ export default function App() {
     setFormVenue(evt.venue);
     setFormDesc(evt.description);
     setFormScope(evt.scope);
+    const startParts = parseIsoToTimeParts(evt.startTime);
+    const endParts = parseIsoToTimeParts(evt.endTime);
+    setFormStartTime(startParts.time24);
+    setFormEndTime(endParts.time24);
+    setFormDateKey(getDateKeyFromISO(evt.startTime));
     setIsCreateOpen(true);
   };
 
   const handleReschedule = async () => {
     if (!selectedEvent) return;
-    Alert.alert('Reschedule Session', 'Shift this session to tomorrow (same time)?', [
+    Alert.alert('Reschedule Session', 'Choose how you want to reschedule this session:', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Shift +24h',
@@ -399,13 +464,19 @@ export default function App() {
             );
             setSelectedEvent(updated);
             setEvents(prev => prev.map(e => (e.id === selectedEvent.id ? updated : e)));
-            Alert.alert('Rescheduled', 'Session schedule updated.');
+            Alert.alert('Rescheduled', 'Session schedule shifted by 24 hours.');
           } catch (err: unknown) {
             Alert.alert(
               'Reschedule Failed',
               err instanceof Error ? err.message : 'Error rescheduling'
             );
           }
+        },
+      },
+      {
+        text: 'Custom Time/Date',
+        onPress: () => {
+          handleOpenEdit(selectedEvent);
         },
       },
     ]);
@@ -1130,7 +1201,16 @@ export default function App() {
       {viewMode !== 'event' && (
         <TouchableOpacity
           style={styles.floatingAddBtn}
-          onPress={() => setIsCreateOpen(true)}
+          onPress={() => {
+            setEditingEventId(null);
+            setFormTitle('');
+            setFormVenue('');
+            setFormDesc('');
+            setFormStartTime('10:00');
+            setFormEndTime('11:30');
+            setFormDateKey(selectedDayKey);
+            setIsCreateOpen(true);
+          }}
           activeOpacity={0.88}
           accessibilityLabel="Add new event drawer"
         >
@@ -1365,6 +1445,9 @@ export default function App() {
           setFormTitle('');
           setFormVenue('');
           setFormDesc('');
+          setFormStartTime('10:00');
+          setFormEndTime('11:30');
+          setFormDateKey(selectedDayKey);
         }}
         title={
           editingEventId
@@ -1476,6 +1559,16 @@ export default function App() {
             colors={c}
             multiline
             numberOfLines={3}
+          />
+
+          {/* Time & Duration Picker */}
+          <TimePickerSection
+            colors={c}
+            dateKey={formDateKey}
+            startTime={formStartTime}
+            endTime={formEndTime}
+            onChangeStartTime={setFormStartTime}
+            onChangeEndTime={setFormEndTime}
           />
 
           <TouchableOpacity style={styles.publishBtn} activeOpacity={0.85} onPress={handleCreate}>

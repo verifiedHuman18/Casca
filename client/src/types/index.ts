@@ -32,6 +32,13 @@ export interface UIEventItem {
   isReadOnly?: boolean;
   createdBy?: string;
   rejectionReason?: string;
+  clashWarnings?: Array<{
+    eventId?: string;
+    title: string;
+    venue: string;
+    startTime: string;
+    endTime: string;
+  }>;
 }
 
 export interface UserSession {
