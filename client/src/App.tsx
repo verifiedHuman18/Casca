@@ -38,8 +38,7 @@ import {
   MONTH_NAMES,
   MONTH_SHORT,
   DAY_SHORT,
-  getDaysInMonth,
-  getFirstDayOfWeek,
+  getMonthWeeks,
   toDateKey,
   getWeekDays,
   getPreviousDayKey,
@@ -537,15 +536,10 @@ export default function App() {
     fetchCalendarEvents().then(setEvents);
   };
 
-  const calendarDays = useMemo(() => {
-    const daysInMonth = getDaysInMonth(calendarYear, calendarMonth);
-    const firstDow = getFirstDayOfWeek(calendarYear, calendarMonth);
-    const cells: (number | null)[] = [];
-    for (let i = 0; i < firstDow; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-    while (cells.length % 7 !== 0) cells.push(null);
-    return cells;
-  }, [calendarYear, calendarMonth]);
+  const calendarWeeks = useMemo(
+    () => getMonthWeeks(calendarYear, calendarMonth),
+    [calendarYear, calendarMonth]
+  );
 
   const todayKey = toDateKey(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -895,47 +889,54 @@ export default function App() {
 
           {/* Month Grid Cells */}
           <View style={styles.calendarGrid}>
-            {calendarDays.map((dayNum, idx) => {
-              if (dayNum === null) {
-                return <View key={`empty-${idx}`} style={styles.calendarCell} />;
-              }
-              const key = toDateKey(calendarYear, calendarMonth, dayNum);
-              const isToday = key === todayKey;
-              const isSelected = key === selectedDayKey;
-              const hasEvents = (eventsByDay.get(key) || []).length > 0;
+            {calendarWeeks.map((week, wIdx) => (
+              <View key={`week-${wIdx}`} style={styles.calendarWeekRow}>
+                {week.map((dayNum, dIdx) => {
+                  if (dayNum === null) {
+                    return <View key={`empty-${wIdx}-${dIdx}`} style={styles.calendarCell} />;
+                  }
+                  const key = toDateKey(calendarYear, calendarMonth, dayNum);
+                  const isToday = key === todayKey;
+                  const isSelected = key === selectedDayKey;
+                  const hasEvents = (eventsByDay.get(key) || []).length > 0;
 
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={styles.calendarCell}
-                  onPress={() => setSelectedDayKey(key)}
-                  activeOpacity={0.75}
-                >
-                  <View
-                    style={[
-                      styles.calendarDayCircle,
-                      isToday && styles.calendarDayToday,
-                      isSelected && !isToday && styles.calendarDaySelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.calendarDayText,
-                        isToday && styles.calendarDayTextToday,
-                        isSelected && !isToday && styles.calendarDayTextSelected,
-                      ]}
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={styles.calendarCell}
+                      onPress={() => setSelectedDayKey(key)}
+                      activeOpacity={0.75}
                     >
-                      {dayNum}
-                    </Text>
-                  </View>
-                  {hasEvents && (
-                    <View
-                      style={[styles.calendarEventDot, isToday && { backgroundColor: c.bgCard }]}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+                      <View
+                        style={[
+                          styles.calendarDayCircle,
+                          isToday && styles.calendarDayToday,
+                          isSelected && !isToday && styles.calendarDaySelected,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.calendarDayText,
+                            isToday && styles.calendarDayTextToday,
+                            isSelected && !isToday && styles.calendarDayTextSelected,
+                          ]}
+                        >
+                          {dayNum}
+                        </Text>
+                      </View>
+                      {hasEvents && (
+                        <View
+                          style={[
+                            styles.calendarEventDot,
+                            isToday && { backgroundColor: c.bgCard },
+                          ]}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
           </View>
 
           {/* Events list for selected date in month view */}
@@ -1972,11 +1973,13 @@ function makeStyles(c: ReturnType<typeof getTheme>['colors']) {
       letterSpacing: 0.5,
     },
     calendarGrid: {
+      flexDirection: 'column',
+    },
+    calendarWeekRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
     },
     calendarCell: {
-      width: `${100 / 7}%`,
+      flex: 1,
       aspectRatio: 0.92,
       alignItems: 'center',
       justifyContent: 'flex-start',

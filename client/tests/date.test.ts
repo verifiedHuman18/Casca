@@ -9,6 +9,7 @@ import {
   formatTime,
   formatTimeRange,
   getMonthMatrix,
+  getMonthWeeks,
   getWeekDays,
   getPreviousDayKey,
   getNextDayKey,
@@ -129,6 +130,41 @@ describe('Date Utilities (client/src/utils/date.ts)', () => {
       expect(todayCell?.isToday).toBe(true);
       expect(todayCell?.isCurrentMonth).toBe(true);
       expect(todayCell?.dayNumber).toBe(12);
+    });
+  });
+
+  describe('getMonthWeeks', () => {
+    it('always chunks month cells into rows of exactly 7 days', () => {
+      for (let month = 0; month < 12; month++) {
+        const weeks = getMonthWeeks(2026, month);
+        weeks.forEach(week => {
+          expect(week).toHaveLength(7);
+        });
+      }
+    });
+
+    it('aligns November 2026 starting on Sunday with 5 full 7-day rows', () => {
+      const weeks = getMonthWeeks(2026, 10); // November 2026
+      expect(weeks).toHaveLength(5);
+      // Week 0: Nov 1 (Sunday) to Nov 7 (Saturday)
+      expect(weeks[0]).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      // Week 4: Nov 29 (Sun), Nov 30 (Mon), followed by 5 null padding cells
+      expect(weeks[4]).toEqual([29, 30, null, null, null, null, null]);
+    });
+
+    it('aligns December 2026 starting on Tuesday with leading nulls', () => {
+      const weeks = getMonthWeeks(2026, 11); // December 2026
+      expect(weeks).toHaveLength(5);
+      // Dec 1 is Tuesday -> index 0 (Sun) and 1 (Mon) are null
+      expect(weeks[0]).toEqual([null, null, 1, 2, 3, 4, 5]);
+      // Dec 31 is Thursday -> index 5 (Fri) and 6 (Sat) are null
+      expect(weeks[4]).toEqual([27, 28, 29, 30, 31, null, null]);
+    });
+
+    it('preserves all consecutive calendar days without omission or duplication', () => {
+      const weeks = getMonthWeeks(2026, 10);
+      const days = weeks.flat().filter((d): d is number => d !== null);
+      expect(days).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
     });
   });
 
