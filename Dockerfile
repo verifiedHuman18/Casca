@@ -48,6 +48,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=builder /app/shared/dist ./shared/dist
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/backend/dist/db/migrations ./backend/dist/db/migrations
+COPY aiven-ca.pem ./
 
 # Expose HTTP port
 EXPOSE 4000

@@ -11,13 +11,28 @@ function buildPool(): Pool {
 
   let ssl: { ca: string; rejectUnauthorized: true } | false = false;
   if (env.dbSsl) {
-    if (!env.dbCaCertPath) {
-      throw new Error('DB_SSL is on but DB_CA_CERT_PATH is not set');
+    let caContent: string | undefined = process.env.DB_CA_CERT;
+    if (!caContent && env.dbCaCertPath) {
+      const candidates = [
+        env.dbCaCertPath,
+        path.resolve(process.cwd(), env.dbCaCertPath),
+        path.resolve(process.cwd(), 'backend', env.dbCaCertPath),
+        path.resolve(__dirname, '../../', path.basename(env.dbCaCertPath)),
+        path.resolve(__dirname, '../../../', path.basename(env.dbCaCertPath)),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          caContent = fs.readFileSync(candidate, 'utf8');
+          break;
+        }
+      }
     }
-    const certPath = fs.existsSync(env.dbCaCertPath)
-      ? env.dbCaCertPath
-      : path.resolve(__dirname, '../../', path.basename(env.dbCaCertPath));
-    ssl = { ca: fs.readFileSync(certPath, 'utf8'), rejectUnauthorized: true };
+    if (!caContent) {
+      throw new Error(
+        'DB_SSL is on but neither DB_CA_CERT nor a readable DB_CA_CERT_PATH was found'
+      );
+    }
+    ssl = { ca: caContent, rejectUnauthorized: true };
   }
 
   const pool = new Pool({ connectionString: url.toString(), ssl, max: 5 });
